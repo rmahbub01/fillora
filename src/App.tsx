@@ -101,10 +101,12 @@ export const App: React.FC = () => {
   }, []);
 
   // Update a single field
-  const handleUpdateField = useCallback((updated: FormField) => {
+  const handleUpdateField = useCallback((updated: FormField, shouldCommit: boolean = true) => {
     setFields((prev) => {
       const next = prev.map((f) => (f.id === updated.id ? updated : f));
-      pushHistory(next);
+      if (shouldCommit) {
+        pushHistory(next);
+      }
       return next;
     });
   }, [pushHistory]);

@@ -1,5 +1,6 @@
 import { PDFDocument } from 'pdf-lib';
 import { FormField, PageInfo } from '../types/pdf';
+import { getEffectiveFontSizePts } from '../utils/typography';
 
 export class PdfExporterService {
   /**
@@ -108,7 +109,8 @@ export class PdfExporterService {
     // Clear transparent background
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const fontSizePx = field.fontSize * scaleFactor;
+    const effectiveSizePts = getEffectiveFontSizePts(field, widthPts, heightPts);
+    const fontSizePx = effectiveSizePts * scaleFactor;
     const fontFamily = field.fontFamily.includes(' ') && !field.fontFamily.includes('"')
       ? `"${field.fontFamily}"`
       : field.fontFamily;

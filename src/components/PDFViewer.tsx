@@ -10,7 +10,7 @@ interface PDFViewerProps {
   fields: FormField[];
   selectedFieldId: string | null;
   onSelectField: (id: string | null) => void;
-  onUpdateField: (field: FormField) => void;
+  onUpdateField: (field: FormField, shouldCommit?: boolean) => void;
   onDeleteField: (id: string) => void;
   onAddField: (type: FormField['type'], x: number, y: number) => void;
   zoomScale: number;

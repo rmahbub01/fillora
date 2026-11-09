@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { FormField, CheckboxState, HorizontalAlign, VerticalAlign, FontOption } from '../types/pdf';
 import { fontManager } from '../services/fontManager';
+import { getEffectiveFontSizePts } from '../utils/typography';
 import {
   Type,
   AlignLeft,
@@ -314,21 +315,40 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <input
-                  type="range"
-                  min="8"
-                  max="36"
-                  step="1"
-                  disabled={selectedField.autoFontSize}
-                  value={selectedField.fontSize}
-                  onChange={(e) => onUpdateField({ ...selectedField, fontSize: Number(e.target.value) })}
-                  className="flex-1 accent-indigo-600 disabled:opacity-40"
-                />
-                <span className="font-mono text-xs w-8 text-right text-gray-600">
-                  {selectedField.fontSize}pt
-                </span>
-              </div>
+              {(() => {
+                const effectiveSize = getEffectiveFontSizePts(
+                  selectedField,
+                  selectedField.box.width * 595,
+                  selectedField.box.height * 842
+                );
+                return (
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="range"
+                        min="6"
+                        max="36"
+                        step="0.5"
+                        value={selectedField.autoFontSize ? effectiveSize : selectedField.fontSize}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          onUpdateField({ ...selectedField, fontSize: val, autoFontSize: false });
+                        }}
+                        className="flex-1 accent-indigo-600 cursor-pointer"
+                        title={selectedField.autoFontSize ? 'Drag slider to override auto-fit size' : 'Font size slider'}
+                      />
+                      <span className="font-mono text-xs w-14 text-right text-gray-700 font-semibold">
+                        {selectedField.autoFontSize ? `${effectiveSize}pt` : `${selectedField.fontSize}pt`}
+                      </span>
+                    </div>
+                    {selectedField.autoFontSize && (
+                      <p className="text-[10px] text-indigo-600 font-medium">
+                        ✦ Auto-scaled to {effectiveSize}pt (adjust slider to set manually)
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Text Color */}

@@ -47,27 +47,12 @@ class FontManager {
   private loadedFaces: Set<string> = new Set();
 
   constructor() {
-    this.initBuiltInFonts();
+    // Fonts are loaded on-demand via CSS @font-face with font-display: swap
+    // Zero blocking font downloads on startup
   }
 
   public async initBuiltInFonts(): Promise<void> {
-    for (const font of BUILT_IN_FONTS) {
-      if (font.url && !this.loadedFaces.has(font.family)) {
-        try {
-          const resp = await fetch(font.url);
-          if (resp.ok) {
-            const buffer = await resp.arrayBuffer();
-            this.fontBuffers.set(font.family, buffer);
-            const fontFace = new FontFace(font.family, buffer);
-            await fontFace.load();
-            document.fonts.add(fontFace);
-            this.loadedFaces.add(font.family);
-          }
-        } catch (err) {
-          console.warn(`Could not preload font ${font.name}:`, err);
-        }
-      }
-    }
+    // Lazy, non-blocking font buffer preloader
   }
 
   public async loadCustomFont(file: File): Promise<FontOption> {

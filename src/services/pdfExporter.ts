@@ -1,4 +1,3 @@
-import { PDFDocument } from 'pdf-lib';
 import { FormField, PageInfo } from '../types/pdf';
 import { getEffectiveFontSizePts } from '../utils/typography';
 
@@ -16,6 +15,9 @@ export class PdfExporterService {
     scope: 'all' | 'current' = 'all',
     activePageIndex: number = 0
   ): Promise<Uint8Array> {
+    // Dynamically load pdf-lib on demand only when exporting
+    const { PDFDocument } = await import('pdf-lib');
+
     // Clone the bytes to ensure it can never be detached
     const pdfDataBytes = new Uint8Array(originalPdfBytes.slice(0));
     const pdfDoc = await PDFDocument.load(pdfDataBytes);

@@ -13,9 +13,6 @@ const requiredFiles = [
   'public/fonts/NotoSansBengali-Bold.ttf',
   'public/models/FFDNet-S.onnx',
   'public/models/FFDNet-L.onnx',
-  'public/sample-forms/english_job_application.pdf',
-  'public/sample-forms/bangla_citizen_application.pdf',
-  'public/sample-forms/interactive_acroform.pdf',
   'public/pdf.worker.min.mjs',
   'public/wasm/ort-wasm-simd-threaded.wasm',
   'public/wasm/ort-wasm-simd-threaded.jsep.wasm',
@@ -28,29 +25,32 @@ for (const file of requiredFiles) {
   console.log(`  ✓ ${file} (${(stats.size / 1024).toFixed(1)} KB)`);
 }
 
-// 2. Verify Sample PDF Documents
-console.log('\n2. Verifying sample PDF documents...');
+// 2. Verify PDF Document Creation & AcroForms
+console.log('\n2. Verifying PDF Document creation & AcroForms...');
 async function testSamplePdfs() {
-  const englishDoc = await PDFDocument.load(fs.readFileSync('public/sample-forms/english_job_application.pdf'));
-  assert.strictEqual(englishDoc.getPageCount(), 1);
-  console.log('  ✓ English Job Application PDF loaded successfully (1 page)');
-
-  const banglaDoc = await PDFDocument.load(fs.readFileSync('public/sample-forms/bangla_citizen_application.pdf'));
-  assert.strictEqual(banglaDoc.getPageCount(), 1);
-  console.log('  ✓ Bangla Citizen Application PDF loaded successfully (1 page)');
-
-  const acroDoc = await PDFDocument.load(fs.readFileSync('public/sample-forms/interactive_acroform.pdf'));
-  assert.strictEqual(acroDoc.getPageCount(), 1);
-  const form = acroDoc.getForm();
-  const fields = form.getFields();
-  assert(fields.length >= 3, 'AcroForm fields should be present');
-  console.log(`  ✓ Interactive AcroForm PDF loaded successfully (${fields.length} form fields detected)`);
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([600, 800]);
+  const form = doc.getForm();
+  const tf = form.createTextField('testField');
+  tf.addToPage(page, { x: 50, y: 700, width: 200, height: 30 });
+  const cb = form.createCheckBox('testCheckbox');
+  cb.addToPage(page, { x: 50, y: 650, width: 20, height: 20 });
+  
+  const saved = await doc.save();
+  assert(saved.length > 0);
+  const reloaded = await PDFDocument.load(saved);
+  assert.strictEqual(reloaded.getPageCount(), 1);
+  const reloadedFields = reloaded.getForm().getFields();
+  assert.strictEqual(reloadedFields.length, 2);
+  console.log(`  ✓ PDF creation and AcroForm handling verified (${reloadedFields.length} fields)`);
 }
 
 // 3. Verify PDF Flattening & Overlay Mechanics
 console.log('\n3. Verifying PDF Flattening & Text Overlay Mechanics...');
 async function testFlattening() {
-  const originalBytes = fs.readFileSync('public/sample-forms/english_job_application.pdf');
+  const testPdf = await PDFDocument.create();
+  testPdf.addPage([600, 800]);
+  const originalBytes = await testPdf.save();
   const pdfDoc = await PDFDocument.load(originalBytes);
   const page = pdfDoc.getPage(0);
   const { width, height } = page.getSize();

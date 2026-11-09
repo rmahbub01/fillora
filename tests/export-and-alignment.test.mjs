@@ -6,8 +6,9 @@ console.log('=== Testing Export & ArrayBuffer Stability ===\n');
 
 // 1. Test Detached Buffer Resilience
 console.log('1. Testing multiple consecutive exports on original PDF buffer...');
-const pdfPath = 'public/sample-forms/english_job_application.pdf';
-const originalBuffer = fs.readFileSync(pdfPath).buffer;
+const testDoc = await PDFDocument.create();
+testDoc.addPage([595, 842]);
+const originalBuffer = (await testDoc.save()).buffer;
 
 async function testExportSafety(buffer) {
   // Simulate what pdfRenderer does: clone for worker

@@ -1,13 +1,22 @@
-import * as pdfjsLib from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { FormField, PageInfo } from '../types/pdf';
 
-// Configure PDF.js worker
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+let pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null = null;
+
+export async function getPdfJs(): Promise<typeof import('pdfjs-dist')> {
+  if (!pdfjsLibPromise) {
+    pdfjsLibPromise = import('pdfjs-dist').then((lib) => {
+      if (typeof window !== 'undefined') {
+        lib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+      }
+      return lib;
+    });
+  }
+  return pdfjsLibPromise;
 }
 
 export class PdfRendererService {
-  private pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
+  private pdfDoc: PDFDocumentProxy | null = null;
   private pdfData: ArrayBuffer | null = null;
   private pageInfos: PageInfo[] = [];
 
@@ -17,6 +26,9 @@ export class PdfRendererService {
     this.pdfData = data.slice(0);
     const workerDataCopy = data.slice(0);
     
+    // Lazy load PDF.js library on demand
+    const pdfjsLib = await getPdfJs();
+
     // Load document with pdfjs
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(workerDataCopy),

@@ -68,8 +68,12 @@ export const App: React.FC = () => {
   // Load a PDF file from buffer
   const loadPdfBuffer = async (buffer: ArrayBuffer, fileName: string = 'Document.pdf') => {
     try {
-      const pages = await pdfRenderer.loadPdf(buffer);
-      setPdfData(buffer);
+      // Create independent copies so the export copy is NEVER touched or detached
+      const exportCopy = buffer.slice(0);
+      const renderCopy = buffer.slice(0);
+      
+      const pages = await pdfRenderer.loadPdf(renderCopy);
+      setPdfData(exportCopy);
       setPageInfos(pages);
       setActivePageIndex(0);
       setSelectedFieldId(null);
@@ -89,23 +93,11 @@ export const App: React.FC = () => {
     await loadPdfBuffer(buffer, file.name);
   };
 
-  const handleOpenSample = async (url: string) => {
-    try {
-      const resp = await fetch(url);
-      const buffer = await resp.arrayBuffer();
-      const fileName = url.split('/').pop() || 'Sample.pdf';
-      await loadPdfBuffer(buffer, fileName);
-    } catch (err) {
-      alert(`Could not load sample form: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  };
-
-  // Load initial sample form on mount
+  // Initialize fonts on mount
   useEffect(() => {
     fontManager.initBuiltInFonts().then(() => {
       setAllFonts(fontManager.getAllFonts());
     });
-    handleOpenSample('/sample-forms/bangla_citizen_application.pdf');
   }, []);
 
   // Update a single field
@@ -415,7 +407,6 @@ export const App: React.FC = () => {
       {/* Top Navbar */}
       <TopNavbar
         onOpenFile={handleOpenFile}
-        onOpenSample={handleOpenSample}
         canUndo={historyIndex > 0}
         canRedo={historyIndex < history.length - 1}
         onUndo={handleUndo}
@@ -459,6 +450,7 @@ export const App: React.FC = () => {
           onAddField={handleAddManualField}
           zoomScale={zoomScale}
           onZoomChange={setZoomScale}
+          onOpenFile={handleOpenFile}
         />
 
         {/* Right Sidebar (Properties & Styling) */}

@@ -13,11 +13,13 @@ export class PdfRendererService {
 
   public async loadPdf(data: ArrayBuffer): Promise<PageInfo[]> {
     this.close();
-    this.pdfData = data;
+    // Always clone the buffer so this.pdfData remains intact and non-detached for export
+    this.pdfData = data.slice(0);
+    const workerDataCopy = data.slice(0);
     
     // Load document with pdfjs
     const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(data),
+      data: new Uint8Array(workerDataCopy),
       cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/cmaps/',
       cMapPacked: true,
       standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@6.5.438/standard_fonts/',
@@ -43,7 +45,7 @@ export class PdfRendererService {
   }
 
   public getRawData(): ArrayBuffer | null {
-    return this.pdfData;
+    return this.pdfData ? this.pdfData.slice(0) : null;
   }
 
   public getPageCount(): number {

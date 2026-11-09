@@ -41,17 +41,18 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       return field.fontSize * scale;
     }
     // Calculate size based on box height and text length
-    const baseHeight = pixelHeight * 0.72;
+    const baseHeight = pixelHeight * 0.64;
     if (field.multiline) {
-      return Math.max(9 * scale, Math.min(18 * scale, baseHeight * 0.45));
+      return Math.max(9 * scale, Math.min(16 * scale, baseHeight * 0.5));
     }
     // For single line, fit within box height and width
     let size = Math.max(9 * scale, Math.min(22 * scale, baseHeight));
-    if (field.value.length > 10) {
-      const charWidthEst = size * 0.6;
+    if (field.value.length > 5) {
+      const charWidthEst = size * 0.55;
       const totalWidth = field.value.length * charWidthEst;
-      if (totalWidth > pixelWidth * 0.9) {
-        size = Math.max(8 * scale, (pixelWidth * 0.9) / (field.value.length * 0.6));
+      const availableWidth = pixelWidth - 8 * scale;
+      if (totalWidth > availableWidth && availableWidth > 0) {
+        size = Math.max(8 * scale, availableWidth / (field.value.length * 0.55));
       }
     }
     return size;
@@ -220,9 +221,11 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       onClick={() => onSelect(field.id)}
       className={`absolute group transition-shadow ${
         isSelected
-          ? 'ring-2 ring-indigo-500 bg-white/70 shadow-sm z-30'
-          : 'hover:ring-1 hover:ring-indigo-300 hover:bg-indigo-50/15 z-10'
-      } ${!field.locked ? 'border border-dashed border-indigo-400' : ''}`}
+          ? 'ring-2 ring-indigo-500 bg-white/85 shadow-sm z-30'
+          : field.value
+          ? 'hover:ring-1 hover:ring-indigo-300 hover:bg-white/40 z-10'
+          : 'border border-indigo-200/50 bg-indigo-50/10 hover:border-indigo-400 hover:bg-indigo-50/25 z-10'
+      } ${!field.locked ? 'border-2 border-dashed border-amber-400 bg-amber-50/10' : ''}`}
       style={{
         left: `${pixelLeft}px`,
         top: `${pixelTop}px`,
@@ -262,36 +265,65 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
 
       {/* Actual Input Overlay */}
       {field.multiline ? (
-        <textarea
-          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-          value={field.value}
-          onChange={(e) => onChange({ ...field, value: e.target.value })}
-          onFocus={() => onSelect(field.id)}
-          placeholder={isSelected ? 'Type here...' : ''}
+        <div
+          className={`w-full h-full flex flex-col ${
+            field.vAlign === 'bottom'
+              ? 'justify-end'
+              : field.vAlign === 'middle'
+              ? 'justify-center'
+              : 'justify-start'
+          }`}
           style={{
-            fontFamily: `"${field.fontFamily}", "Noto Sans Bengali", Kalpurush, sans-serif`,
-            fontSize: `${computedFontSize}px`,
-            color: field.color,
-            textAlign: field.hAlign,
+            padding: `${Math.max(2, 3 * scale)}px ${Math.max(2, 4 * scale)}px`,
           }}
-          className="w-full h-full p-1 bg-transparent resize-none outline-none border-none leading-relaxed text-gray-900 overflow-hidden font-normal"
-        />
+        >
+          <textarea
+            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+            value={field.value}
+            onChange={(e) => onChange({ ...field, value: e.target.value })}
+            onFocus={() => onSelect(field.id)}
+            placeholder="Type here..."
+            style={{
+              fontFamily: `"${field.fontFamily}", "Noto Sans Bengali", Kalpurush, sans-serif`,
+              fontSize: `${computedFontSize}px`,
+              color: field.color,
+              textAlign: field.hAlign,
+              lineHeight: 1.35,
+            }}
+            className="w-full h-full bg-transparent resize-none outline-none border-none p-0 m-0 leading-normal text-gray-900 overflow-hidden font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal"
+          />
+        </div>
       ) : (
-        <input
-          ref={inputRef as React.RefObject<HTMLInputElement>}
-          type="text"
-          value={field.value}
-          onChange={(e) => onChange({ ...field, value: e.target.value })}
-          onFocus={() => onSelect(field.id)}
-          placeholder={isSelected ? 'Type here...' : ''}
+        <div
+          className={`w-full h-full flex ${
+            field.vAlign === 'top'
+              ? 'items-start'
+              : field.vAlign === 'bottom'
+              ? 'items-end'
+              : 'items-center'
+          }`}
           style={{
-            fontFamily: `"${field.fontFamily}", "Noto Sans Bengali", Kalpurush, sans-serif`,
-            fontSize: `${computedFontSize}px`,
-            color: field.color,
-            textAlign: field.hAlign,
+            paddingLeft: `${Math.max(2, 4 * scale)}px`,
+            paddingRight: `${Math.max(2, 4 * scale)}px`,
           }}
-          className="w-full h-full px-1 bg-transparent outline-none border-none text-gray-900 font-normal"
-        />
+        >
+          <input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type="text"
+            value={field.value}
+            onChange={(e) => onChange({ ...field, value: e.target.value })}
+            onFocus={() => onSelect(field.id)}
+            placeholder="Type here..."
+            style={{
+              fontFamily: `"${field.fontFamily}", "Noto Sans Bengali", Kalpurush, sans-serif`,
+              fontSize: `${computedFontSize}px`,
+              color: field.color,
+              textAlign: field.hAlign,
+              lineHeight: 'normal',
+            }}
+            className="w-full bg-transparent outline-none border-none p-0 m-0 text-gray-900 font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal"
+          />
+        </div>
       )}
 
       {/* Resize handles when unlocked and selected */}

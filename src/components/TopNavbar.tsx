@@ -10,14 +10,12 @@ import {
   CheckSquare,
   ShieldCheck,
   ChevronDown,
-  BookOpen,
   Cpu,
   Zap,
 } from 'lucide-react';
 
 interface TopNavbarProps {
   onOpenFile: (file: File) => void;
-  onOpenSample: (sampleName: string) => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -36,7 +34,6 @@ interface TopNavbarProps {
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
   onOpenFile,
-  onOpenSample,
   canUndo,
   canRedo,
   onUndo,
@@ -53,7 +50,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onOpenPrivacyModal,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showSamplesMenu, setShowSamplesMenu] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,50 +105,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           <Upload className="w-4 h-4 text-gray-500" />
           <span>Open PDF</span>
         </button>
-
-        {/* Sample Forms Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setShowSamplesMenu(!showSamplesMenu)}
-            className="px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg flex items-center space-x-1 transition"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-gray-500" />
-            <span className="hidden md:inline">Samples</span>
-            <ChevronDown className="w-3 h-3 text-gray-400" />
-          </button>
-
-          {showSamplesMenu && (
-            <div
-              className="absolute left-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 text-xs"
-              onClick={() => setShowSamplesMenu(false)}
-            >
-              <div className="px-3 py-1 font-semibold text-[10px] text-gray-400 uppercase tracking-wider">
-                Try Sample Documents
-              </div>
-              <button
-                onClick={() => onOpenSample('/sample-forms/bangla_citizen_application.pdf')}
-                className="w-full text-left px-3 py-2 hover:bg-indigo-50 hover:text-indigo-700 transition flex flex-col"
-              >
-                <span className="font-semibold text-gray-800">নাগরিক আবেদন ফরম (Bangla Citizen Form)</span>
-                <span className="text-[10px] text-gray-500">Government form with complex Bangla script & checkboxes</span>
-              </button>
-              <button
-                onClick={() => onOpenSample('/sample-forms/english_job_application.pdf')}
-                className="w-full text-left px-3 py-2 hover:bg-indigo-50 hover:text-indigo-700 transition flex flex-col"
-              >
-                <span className="font-semibold text-gray-800">English Job Application</span>
-                <span className="text-[10px] text-gray-500">Clean job application with checkboxes and text fields</span>
-              </button>
-              <button
-                onClick={() => onOpenSample('/sample-forms/interactive_acroform.pdf')}
-                className="w-full text-left px-3 py-2 hover:bg-indigo-50 hover:text-indigo-700 transition flex flex-col"
-              >
-                <span className="font-semibold text-gray-800">Interactive AcroForm Test</span>
-                <span className="text-[10px] text-gray-500">PDF with pre-existing interactive AcroForm widgets</span>
-              </button>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Middle: Undo/Redo & Detect AI Controls */}

@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { FormField, PageInfo } from '../types/pdf';
 import { pdfRenderer } from '../services/pdfRenderer';
 import { FieldOverlay } from './FieldOverlay';
-import { Plus, CheckSquare, Type, ZoomIn, ZoomOut, Maximize2, RotateCcw } from 'lucide-react';
+import { Plus, CheckSquare, Type, ZoomIn, ZoomOut, Maximize2, RotateCcw, Upload } from 'lucide-react';
 
 interface PDFViewerProps {
   pageIndex: number;
@@ -15,6 +15,7 @@ interface PDFViewerProps {
   onAddField: (type: FormField['type'], x: number, y: number) => void;
   zoomScale: number;
   onZoomChange: (newScale: number) => void;
+  onOpenFile?: (file: File) => void;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
@@ -28,6 +29,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   onAddField,
   zoomScale,
   onZoomChange,
+  onOpenFile,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -84,8 +86,49 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
   if (!pageInfo) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-100 text-gray-400">
-        No document loaded
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-100/90 select-none">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-gray-200/80 p-8 text-center flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 shadow-xs">
+            <Upload className="w-8 h-8" />
+          </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-1">Upload a PDF Form to Get Started</h2>
+          <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+            Drag and drop your PDF here, or click to browse files from your device. All processing happens 100% locally.
+          </p>
+
+          <input
+            id="emptyStatePdfInput"
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file && onOpenFile) onOpenFile(file);
+            }}
+            className="hidden"
+          />
+          <button
+            onClick={() => document.getElementById('emptyStatePdfInput')?.click()}
+            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-md transition flex items-center justify-center space-x-2 cursor-pointer"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Select PDF Document</span>
+          </button>
+
+          <div className="mt-6 pt-6 border-t border-gray-100 w-full flex items-center justify-around text-[11px] text-gray-400">
+            <span className="flex items-center space-x-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>100% Private</span>
+            </span>
+            <span className="flex items-center space-x-1">
+              <span className="w-2 h-2 rounded-full bg-indigo-500" />
+              <span>AI Form Detection</span>
+            </span>
+            <span className="flex items-center space-x-1">
+              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              <span>Bangla Unicode</span>
+            </span>
+          </div>
+        </div>
       </div>
     );
   }

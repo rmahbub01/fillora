@@ -46,7 +46,9 @@ export class PdfExporterService {
       if (pageIdx >= numPages) continue;
 
       const page = pdfDoc.getPage(pageIdx);
-      const { width: pageWidth, height: pageHeight } = page.getSize();
+      const pageInfo = pageInfos.find((p) => p.pageIndex === pageIdx);
+      const pageWidth = pageInfo ? pageInfo.width : page.getWidth();
+      const pageHeight = pageInfo ? pageInfo.height : page.getHeight();
       const pageFields = fieldsByPage.get(pageIdx) || [];
 
       for (const field of pageFields) {
@@ -71,14 +73,16 @@ export class PdfExporterService {
           }
         } else {
           // Render text with complex Bengali HarfBuzz shaping on high-DPI canvas
-          const pngBytes = await this.renderTextToPng(field, pdfBoxW, pdfBoxH);
-          if (pngBytes) {
-            const pngImage = await pdfDoc.embedPng(pngBytes);
+          // Supports natural visual overflow (for increased font size or long text) with 100% position parity
+          const result = await this.renderTextToPng(field, pdfBoxW, pdfBoxH);
+          if (result && result.bytes) {
+            const pngImage = await pdfDoc.embedPng(result.bytes);
+            const { drawXOffset, drawYOffset, totalWidthPts, totalHeightPts } = result.renderInfo;
             page.drawImage(pngImage, {
-              x: pdfBoxX,
-              y: pdfBoxY,
-              width: pdfBoxW,
-              height: pdfBoxH,
+              x: pdfBoxX - drawXOffset,
+              y: pdfBoxY - drawYOffset,
+              width: totalWidthPts,
+              height: totalHeightPts,
             });
           }
         }
@@ -90,75 +94,128 @@ export class PdfExporterService {
 
   /**
    * Render text with complex script shaping (Bengali / English) to a transparent PNG.
-   * Uses 4x resolution (approx 300+ DPI) to produce razor-sharp vector-grade typography.
+   * Uses 8x resolution (approx 576-600 DPI) to produce razor-sharp vector-grade typography.
+   * In multi-line mode, text grows outside naturally without top/bottom padding or cropping.
    */
   private async renderTextToPng(
     field: FormField,
     widthPts: number,
     heightPts: number
-  ): Promise<Uint8Array | null> {
-    const scaleFactor = 4; // 4x supersampling for 288-300 DPI print quality
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.ceil(widthPts * scaleFactor);
-    canvas.height = Math.ceil(heightPts * scaleFactor);
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    // Ensure fonts are loaded in document
-    await document.fonts.ready;
-
-    // Clear transparent background
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+  ): Promise<{
+    bytes: Uint8Array | null;
+    actualHeightPts: number;
+    renderInfo: {
+      drawXOffset: number;
+      drawYOffset: number;
+      totalWidthPts: number;
+      totalHeightPts: number;
+    };
+  }> {
+    const scaleFactor = 8; // 8x supersampling for 576-600 DPI razor-sharp print quality
     const effectiveSizePts = getEffectiveFontSizePts(field, widthPts, heightPts);
     const fontSizePx = effectiveSizePts * scaleFactor;
     const fontFamily = field.fontFamily.includes(' ') && !field.fontFamily.includes('"')
       ? `"${field.fontFamily}"`
       : field.fontFamily;
-    
-    ctx.font = `${fontSizePx}px ${fontFamily}, Nikosh, "Noto Sans Bengali", Kalpurush, sans-serif`;
-    ctx.fillStyle = field.color || '#000000';
-    ctx.textBaseline = 'alphabetic';
 
-    // Padding inside the field
-    const padX = 4 * scaleFactor;
-    const padY = 4 * scaleFactor;
-    const availableWidth = canvas.width - padX * 2;
-    const availableHeight = canvas.height - padY * 2;
+    // Explicitly preload font at target size to ensure vector glyphs are used
+    try {
+      await Promise.all([
+        document.fonts.load(`${fontSizePx}px ${fontFamily}`),
+        document.fonts.load(`${fontSizePx}px "Kalpurush"`),
+        document.fonts.load(`${fontSizePx}px "Nikosh"`),
+        document.fonts.load(`${fontSizePx}px "Noto Sans Bengali"`),
+      ]);
+    } catch {}
+    await document.fonts.ready;
+
+    // Temporary canvas for exact text measurement
+    const measureCanvas = document.createElement('canvas');
+    const measureCtx = measureCanvas.getContext('2d');
+    if (!measureCtx) {
+      return {
+        bytes: null,
+        actualHeightPts: heightPts,
+        renderInfo: { drawXOffset: 0, drawYOffset: 0, totalWidthPts: widthPts, totalHeightPts: heightPts },
+      };
+    }
+    measureCtx.font = `${fontSizePx}px ${fontFamily}, Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return {
+        bytes: null,
+        actualHeightPts: heightPts,
+        renderInfo: { drawXOffset: 0, drawYOffset: 0, totalWidthPts: widthPts, totalHeightPts: heightPts },
+      };
+    }
 
     if (field.multiline) {
-      // Word wrap and render multiple lines
-      const words = field.value.split(/\s+/);
+      // Top and bottom padding removed in multi-line mode; text starts directly at top
+      const padX = 4 * scaleFactor;
+      const padY = 0;
+      const availableWidth = Math.max(10, widthPts * scaleFactor - padX * 2);
+
+      // Preserve explicit newlines and word-wrap each paragraph within available width
+      const paragraphs = field.value.split('\n');
       const lines: string[] = [];
-      let currentLine = '';
 
-      for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > availableWidth && currentLine) {
-          lines.push(currentLine);
-          currentLine = word;
-        } else {
-          currentLine = testLine;
+      for (const para of paragraphs) {
+        if (!para.trim()) {
+          lines.push('');
+          continue;
         }
-      }
-      if (currentLine) lines.push(currentLine);
+        const words = para.split(/\s+/);
+        let currentLine = '';
 
-      const lineHeight = fontSizePx * 1.35;
-      const totalTextH = lines.length * lineHeight;
-
-      let startY = padY + lineHeight * 0.85;
-      if (field.vAlign === 'middle') {
-        startY = padY + Math.max(0, (availableHeight - totalTextH) / 2) + lineHeight * 0.85;
-      } else if (field.vAlign === 'bottom') {
-        startY = canvas.height - padY - totalTextH + lineHeight * 0.85;
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const metrics = measureCtx.measureText(testLine);
+          if (metrics.width > availableWidth && currentLine) {
+            lines.push(currentLine);
+            // If the single word itself is wider than availableWidth, break by character
+            if (measureCtx.measureText(word).width > availableWidth) {
+              let chunk = '';
+              for (const ch of word) {
+                if (measureCtx.measureText(chunk + ch).width > availableWidth && chunk) {
+                  lines.push(chunk);
+                  chunk = ch;
+                } else {
+                  chunk += ch;
+                }
+              }
+              currentLine = chunk;
+            } else {
+              currentLine = word;
+            }
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
       }
+
+      const lineHeightPx = fontSizePx * 1.35;
+      const totalTextHPx = Math.max(1, lines.length) * lineHeightPx;
+      // Allow text to grow outside the original box height if content requires more vertical space
+      const actualHeightPts = Math.max(heightPts, totalTextHPx / scaleFactor);
+
+      // Re-dimension canvas height to accommodate growing text without clipping
+      canvas.width = Math.ceil(widthPts * scaleFactor);
+      canvas.height = Math.ceil(actualHeightPts * scaleFactor);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.font = `${fontSizePx}px ${fontFamily}, Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`;
+      ctx.fillStyle = field.color || '#000000';
+      ctx.textBaseline = 'top';
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        const lineY = startY + i * lineHeight;
-        if (lineY > canvas.height) break; // prevent vertical overflow
+        if (!line) continue;
+        const lineY = i * lineHeightPx;
 
         let lineX = padX;
         if (field.hAlign === 'center') {
@@ -171,29 +228,123 @@ export class PdfExporterService {
 
         ctx.fillText(line, lineX, lineY);
       }
+
+      const bytes = await this.canvasToUint8Array(canvas);
+      return {
+        bytes,
+        actualHeightPts,
+        renderInfo: {
+          drawXOffset: 0,
+          drawYOffset: actualHeightPts - heightPts,
+          totalWidthPts: widthPts,
+          totalHeightPts: actualHeightPts,
+        },
+      };
     } else {
-      // Single line text
-      let textX = padX;
-      if (field.hAlign === 'center') {
-        const w = ctx.measureText(field.value).width;
-        textX = (canvas.width - w) / 2;
-      } else if (field.hAlign === 'right') {
-        const w = ctx.measureText(field.value).width;
-        textX = canvas.width - padX - w;
-      }
+      // Single line text: calculates bleed so large font size or long text overflows naturally without clipping
+      const text = field.value || '';
+      const textMetrics = measureCtx.measureText(text);
+      const textWidthPx = textMetrics.width;
+      const textWidthPts = textWidthPx / scaleFactor;
 
-      // Vertical alignment
-      let textY = padY + fontSizePx * 0.9;
+      const padXPts = 4;
+      const padXPx = padXPts * scaleFactor;
+
+      // Vertical overflow bleed (when font size is larger than box height)
+      const fontHeightPts = effectiveSizePts * 1.35;
+      let bleedTopPts = 0;
+      let bleedBottomPts = 0;
+
       if (field.vAlign === 'middle') {
-        textY = (canvas.height + fontSizePx * 0.75) / 2;
+        if (fontHeightPts > heightPts) {
+          const extraV = (fontHeightPts - heightPts) / 2 + 4;
+          bleedTopPts = Math.ceil(extraV);
+          bleedBottomPts = Math.ceil(extraV);
+        }
+      } else if (field.vAlign === 'top') {
+        if (fontHeightPts > heightPts) {
+          bleedBottomPts = Math.ceil(fontHeightPts - heightPts + 4);
+        }
       } else if (field.vAlign === 'bottom') {
-        textY = canvas.height - padY;
+        if (fontHeightPts > heightPts) {
+          bleedTopPts = Math.ceil(fontHeightPts - heightPts + 4);
+        }
       }
 
-      ctx.fillText(field.value, textX, textY);
-    }
+      // Horizontal overflow bleed (when text is wider than field box)
+      let bleedLeftPts = 0;
+      let bleedRightPts = 0;
 
-    return await this.canvasToUint8Array(canvas);
+      if (field.hAlign === 'left') {
+        const neededWidthPts = padXPts + textWidthPts;
+        if (neededWidthPts > widthPts) {
+          bleedRightPts = Math.ceil(neededWidthPts - widthPts + 8);
+        }
+      } else if (field.hAlign === 'center') {
+        if (textWidthPts > widthPts - padXPts * 2) {
+          const extraH = (textWidthPts - (widthPts - padXPts * 2)) / 2 + 4;
+          bleedLeftPts = Math.ceil(extraH);
+          bleedRightPts = Math.ceil(extraH);
+        }
+      } else if (field.hAlign === 'right') {
+        const neededWidthPts = padXPts + textWidthPts;
+        if (neededWidthPts > widthPts) {
+          bleedLeftPts = Math.ceil(neededWidthPts - widthPts + 8);
+        }
+      }
+
+      const canvasWidthPts = widthPts + bleedLeftPts + bleedRightPts;
+      const canvasHeightPts = heightPts + bleedTopPts + bleedBottomPts;
+
+      canvas.width = Math.ceil(canvasWidthPts * scaleFactor);
+      canvas.height = Math.ceil(canvasHeightPts * scaleFactor);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.font = `${fontSizePx}px ${fontFamily}, Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`;
+      ctx.fillStyle = field.color || '#000000';
+
+      // Bounding box bounds inside the enlarged canvas
+      const boxLeftPx = bleedLeftPts * scaleFactor;
+      const boxTopPx = bleedTopPts * scaleFactor;
+      const boxWidthPx = widthPts * scaleFactor;
+      const boxHeightPx = heightPts * scaleFactor;
+
+      // Horizontal positioning
+      let textX = boxLeftPx + padXPx;
+      if (field.hAlign === 'center') {
+        textX = boxLeftPx + (boxWidthPx - textWidthPx) / 2;
+      } else if (field.hAlign === 'right') {
+        textX = boxLeftPx + boxWidthPx - padXPx - textWidthPx;
+      }
+
+      // Vertical positioning matching browser flex layout
+      let textY = boxTopPx + boxHeightPx / 2;
+      ctx.textBaseline = 'middle';
+
+      if (field.vAlign === 'top') {
+        ctx.textBaseline = 'top';
+        textY = boxTopPx;
+      } else if (field.vAlign === 'bottom') {
+        ctx.textBaseline = 'bottom';
+        textY = boxTopPx + boxHeightPx;
+      }
+
+      ctx.fillText(text, textX, textY);
+
+      const bytes = await this.canvasToUint8Array(canvas);
+      return {
+        bytes,
+        actualHeightPts: heightPts,
+        renderInfo: {
+          drawXOffset: bleedLeftPts,
+          drawYOffset: bleedBottomPts,
+          totalWidthPts: canvasWidthPts,
+          totalHeightPts: canvasHeightPts,
+        },
+      };
+    }
   }
 
   /**
@@ -204,7 +355,7 @@ export class PdfExporterService {
     widthPts: number,
     heightPts: number
   ): Promise<Uint8Array | null> {
-    const scaleFactor = 4;
+    const scaleFactor = 8;
     const canvas = document.createElement('canvas');
     canvas.width = Math.ceil(widthPts * scaleFactor);
     canvas.height = Math.ceil(heightPts * scaleFactor);
@@ -213,6 +364,8 @@ export class PdfExporterService {
     if (!ctx) return null;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     const w = canvas.width;
     const h = canvas.height;
     const color = field.color || '#111827';

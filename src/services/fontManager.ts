@@ -3,18 +3,18 @@ import { sanitizeFontBuffer } from '../utils/fontSanitizer';
 
 export const BUILT_IN_FONTS: FontOption[] = [
   {
-    id: 'nikosh',
-    name: 'Nikosh (Bangla Official)',
-    family: 'Nikosh',
-    isBangla: true,
-    url: '/fonts/Nikosh.ttf',
-  },
-  {
     id: 'kalpurush',
     name: 'Kalpurush (Bangla Classic)',
     family: 'Kalpurush',
     isBangla: true,
     url: '/fonts/Kalpurush.ttf',
+  },
+  {
+    id: 'nikosh',
+    name: 'Nikosh (Bangla Official)',
+    family: 'Nikosh',
+    isBangla: true,
+    url: '/fonts/Nikosh.ttf',
   },
   {
     id: 'noto-sans-bengali',

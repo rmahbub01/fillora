@@ -158,7 +158,7 @@ export const App: React.FC = () => {
         height: isCheckbox ? 0.025 : 0.035,
       },
       value: '',
-      fontFamily: 'Nikosh',
+      fontFamily: 'Kalpurush',
       fontSize: 12,
       autoFontSize: true,
       color: '#111827',
@@ -458,6 +458,7 @@ export const App: React.FC = () => {
         {/* Right Sidebar (Properties & Styling) */}
         <RightSidebar
           selectedField={selectedField}
+          pageInfo={selectedField ? (pageInfos.find((p) => p.pageIndex === selectedField.pageIndex) || pageInfos[activePageIndex]) : pageInfos[activePageIndex]}
           onUpdateField={handleUpdateField}
           onDeleteField={handleDeleteField}
           onDuplicateField={handleDuplicateField}

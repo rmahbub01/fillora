@@ -31,6 +31,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   const [dragStart, setDragStart] = useState({ mouseX: 0, mouseY: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 });
   const dragDistRef = useRef<number>(0);
   const currentBoxRef = useRef(field.box);
+  const [multilineHeight, setMultilineHeight] = useState<number>(0);
 
   currentBoxRef.current = field.box;
 
@@ -45,6 +46,19 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   const fieldHeightPts = field.box.height * pageHeight;
   const effectiveFontSizePts = getEffectiveFontSizePts(field, fieldWidthPts, fieldHeightPts);
   const computedFontSize = effectiveFontSizePts * scale;
+
+  // Auto-grow textarea height so text grows outside the box without clipping
+  useEffect(() => {
+    if (field.multiline && inputRef.current) {
+      const textarea = inputRef.current as HTMLTextAreaElement;
+      textarea.style.height = 'auto';
+      const scrollH = textarea.scrollHeight;
+      const targetH = Math.max(pixelHeight, scrollH);
+      textarea.style.height = `${targetH}px`;
+      setMultilineHeight(targetH);
+    }
+  }, [field.value, field.multiline, pixelHeight, computedFontSize]);
+
 
   const handleMouseDownMove = (e: React.MouseEvent) => {
     if (field.locked) return;
@@ -149,10 +163,17 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     };
 
     const handleMouseUp = () => {
+      const b = currentBoxRef.current;
+      const cleanBox = {
+        x: Math.round(b.x * 1000) / 1000,
+        y: Math.round(b.y * 1000) / 1000,
+        width: Math.round(b.width * 1000) / 1000,
+        height: Math.round(b.height * 1000) / 1000,
+      };
       // Commit final position to history once
       onChange({
         ...field,
-        box: currentBoxRef.current,
+        box: cleanBox,
       }, true);
       setIsDragging(false);
       setIsResizing(null);
@@ -272,7 +293,9 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
         left: `${pixelLeft}px`,
         top: `${pixelTop}px`,
         width: `${pixelWidth}px`,
-        height: `${pixelHeight}px`,
+        height: field.multiline ? `${Math.max(pixelHeight, multilineHeight)}px` : `${pixelHeight}px`,
+        minHeight: `${pixelHeight}px`,
+        overflow: 'visible',
       }}
     >
       {/* Floating control bar when selected (consistent with overlay text boxes) */}
@@ -333,31 +356,42 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       {/* Actual Input Overlay */}
       {field.multiline ? (
         <div
-          className={`w-full h-full flex flex-col ${
-            field.vAlign === 'bottom'
-              ? 'justify-end'
-              : field.vAlign === 'middle'
-              ? 'justify-center'
-              : 'justify-start'
-          }`}
+          className="w-full flex flex-col justify-start"
           style={{
-            padding: `${Math.max(2, 3 * scale)}px ${Math.max(2, 4 * scale)}px`,
+            paddingLeft: `${Math.max(2, 4 * scale)}px`,
+            paddingRight: `${Math.max(2, 4 * scale)}px`,
+            paddingTop: '0px',
+            paddingBottom: '0px',
           }}
         >
           <textarea
             ref={inputRef as React.RefObject<HTMLTextAreaElement>}
             value={field.value}
-            onChange={(e) => onChange({ ...field, value: e.target.value }, true)}
+            onChange={(e) => {
+              onChange({ ...field, value: e.target.value }, true);
+              if (field.multiline) {
+                e.target.style.height = 'auto';
+                const newH = Math.max(pixelHeight, e.target.scrollHeight);
+                e.target.style.height = `${newH}px`;
+                setMultilineHeight(newH);
+              }
+            }}
             onFocus={() => onSelect(field.id)}
             placeholder="Type here..."
+            rows={1}
             style={{
-              fontFamily: `"${field.fontFamily}", Nikosh, "Noto Sans Bengali", Kalpurush, sans-serif`,
+              fontFamily: `"${field.fontFamily}", Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`,
               fontSize: `${computedFontSize}px`,
               color: field.color,
               textAlign: field.hAlign,
               lineHeight: 1.35,
+              paddingTop: '0px',
+              paddingBottom: '0px',
+              minHeight: `${pixelHeight}px`,
+              height: `${Math.max(pixelHeight, multilineHeight)}px`,
+              overflow: 'visible',
             }}
-            className="w-full h-full bg-transparent resize-none outline-none border-none p-0 m-0 leading-normal text-gray-900 overflow-hidden font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal"
+            className="w-full bg-transparent resize-none outline-none border-none p-0 m-0 text-gray-900 font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal"
           />
         </div>
       ) : (
@@ -372,6 +406,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
           style={{
             paddingLeft: `${Math.max(2, 4 * scale)}px`,
             paddingRight: `${Math.max(2, 4 * scale)}px`,
+            overflow: 'visible',
           }}
         >
           <input
@@ -382,11 +417,12 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
             onFocus={() => onSelect(field.id)}
             placeholder="Type here..."
             style={{
-              fontFamily: `"${field.fontFamily}", Nikosh, "Noto Sans Bengali", Kalpurush, sans-serif`,
+              fontFamily: `"${field.fontFamily}", Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`,
               fontSize: `${computedFontSize}px`,
               color: field.color,
               textAlign: field.hAlign,
               lineHeight: 'normal',
+              overflow: 'visible',
             }}
             className="w-full bg-transparent outline-none border-none p-0 m-0 text-gray-900 font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal"
           />

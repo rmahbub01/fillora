@@ -57,12 +57,12 @@ export class HeuristicDetector {
             if (emptyRatio > 0.6) {
               candidateBoxes.push({
                 box: {
-                  x: startX / width,
-                  y: boxY / height,
-                  width: run / width,
-                  height: boxH / height,
+                  x: Math.round((startX / width) * 1000) / 1000,
+                  y: Math.round((boxY / height) * 1000) / 1000,
+                  width: Math.round((run / width) * 1000) / 1000,
+                  height: Math.round((boxH / height) * 1000) / 1000,
                 },
-                type: run > width * 0.4 ? 'textarea' : 'text',
+                type: 'text',
                 confidence: 0.82,
               });
             }
@@ -76,10 +76,10 @@ export class HeuristicDetector {
     // Scan connected components / bounding boxes of rectangular contours
     const boxes = this.findRectangles(binary, width, height);
     for (const b of boxes) {
-      const normW = b.w / width;
-      const normH = b.h / height;
-      const normX = b.x / width;
-      const normY = b.y / height;
+      const normW = Math.round((b.w / width) * 1000) / 1000;
+      const normH = Math.round((b.h / height) * 1000) / 1000;
+      const normX = Math.round((b.x / width) * 1000) / 1000;
+      const normY = Math.round((b.y / height) * 1000) / 1000;
       const aspect = b.w / b.h;
 
       // Checkbox: aspect ~0.7 to 1.4, size between 10px and 35px
@@ -115,7 +115,7 @@ export class HeuristicDetector {
       label: item.type === 'checkbox' ? `Checkbox ${idx + 1}` : `Field ${idx + 1}`,
       box: item.box,
       value: '',
-      fontFamily: 'Nikosh',
+      fontFamily: 'Kalpurush',
       fontSize: item.type === 'textarea' ? 11 : 12,
       autoFontSize: true,
       color: '#111827',

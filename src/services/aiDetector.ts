@@ -102,10 +102,10 @@ export class AiDetectorService {
         const pixelW = det.width * targetSize;
         const pixelH = det.height * targetSize;
 
-        const pageNormX = Math.max(0, Math.min(1, (pixelX - offsetX) / renderedW));
-        const pageNormY = Math.max(0, Math.min(1, (pixelY - offsetY) / renderedH));
-        const pageNormW = Math.max(0.01, Math.min(1 - pageNormX, pixelW / renderedW));
-        const pageNormH = Math.max(0.01, Math.min(1 - pageNormY, pixelH / renderedH));
+        const pageNormX = Math.round(Math.max(0, Math.min(1, (pixelX - offsetX) / renderedW)) * 1000) / 1000;
+        const pageNormY = Math.round(Math.max(0, Math.min(1, (pixelY - offsetY) / renderedH)) * 1000) / 1000;
+        const pageNormW = Math.round(Math.max(0.01, Math.min(1 - pageNormX, pixelW / renderedW)) * 1000) / 1000;
+        const pageNormH = Math.round(Math.max(0.01, Math.min(1 - pageNormY, pixelH / renderedH)) * 1000) / 1000;
 
         const isCheckbox = det.className === 'ChoiceButton' || (det.width < 0.05 && det.height < 0.05);
         const isSignature = det.className === 'Signature';
@@ -128,7 +128,7 @@ export class AiDetectorService {
             height: pageNormH,
           },
           value: '',
-          fontFamily: 'Nikosh',
+          fontFamily: 'Kalpurush',
           fontSize: isMultiline ? 11 : 12,
           autoFontSize: true,
           color: '#111827',

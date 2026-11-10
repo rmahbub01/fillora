@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { FormField, CheckboxState, HorizontalAlign, VerticalAlign, FontOption } from '../types/pdf';
+import { FormField, CheckboxState, HorizontalAlign, VerticalAlign, FontOption, PageInfo } from '../types/pdf';
 import { fontManager } from '../services/fontManager';
 import { getEffectiveFontSizePts } from '../utils/typography';
 import {
@@ -26,6 +26,7 @@ import {
 
 interface RightSidebarProps {
   selectedField: FormField | null;
+  pageInfo?: PageInfo;
   onUpdateField: (field: FormField) => void;
   onDeleteField: (id: string) => void;
   onDuplicateField: (field: FormField) => void;
@@ -36,6 +37,7 @@ interface RightSidebarProps {
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
   selectedField,
+  pageInfo,
   onUpdateField,
   onDeleteField,
   onDuplicateField,
@@ -318,10 +320,12 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               </div>
 
               {(() => {
+                const pageWidth = pageInfo?.width ?? 595.28;
+                const pageHeight = pageInfo?.height ?? 841.89;
                 const effectiveSize = getEffectiveFontSizePts(
                   selectedField,
-                  selectedField.box.width * 595,
-                  selectedField.box.height * 842
+                  selectedField.box.width * pageWidth,
+                  selectedField.box.height * pageHeight
                 );
                 const currentDisplaySize = selectedField.autoFontSize ? effectiveSize : selectedField.fontSize;
                 return (
@@ -466,12 +470,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   type="number"
                   step="0.1"
                   value={Math.round(selectedField.box.x * 1000) / 10}
-                  onChange={(e) =>
-                    onUpdateField({
-                      ...selectedField,
-                      box: { ...selectedField.box, x: Number(e.target.value) / 100 },
-                    })
-                  }
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val)) {
+                      onUpdateField({
+                        ...selectedField,
+                        box: { ...selectedField.box, x: Math.max(0, Math.min(1, val / 100)) },
+                      });
+                    }
+                  }}
                   className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono"
                 />
               </div>
@@ -481,12 +488,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   type="number"
                   step="0.1"
                   value={Math.round(selectedField.box.y * 1000) / 10}
-                  onChange={(e) =>
-                    onUpdateField({
-                      ...selectedField,
-                      box: { ...selectedField.box, y: Number(e.target.value) / 100 },
-                    })
-                  }
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val)) {
+                      onUpdateField({
+                        ...selectedField,
+                        box: { ...selectedField.box, y: Math.max(0, Math.min(1, val / 100)) },
+                      });
+                    }
+                  }}
                   className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono"
                 />
               </div>
@@ -496,12 +506,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   type="number"
                   step="0.1"
                   value={Math.round(selectedField.box.width * 1000) / 10}
-                  onChange={(e) =>
-                    onUpdateField({
-                      ...selectedField,
-                      box: { ...selectedField.box, width: Number(e.target.value) / 100 },
-                    })
-                  }
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val)) {
+                      onUpdateField({
+                        ...selectedField,
+                        box: { ...selectedField.box, width: Math.max(0.005, Math.min(1, val / 100)) },
+                      });
+                    }
+                  }}
                   className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono"
                 />
               </div>
@@ -511,12 +524,15 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   type="number"
                   step="0.1"
                   value={Math.round(selectedField.box.height * 1000) / 10}
-                  onChange={(e) =>
-                    onUpdateField({
-                      ...selectedField,
-                      box: { ...selectedField.box, height: Number(e.target.value) / 100 },
-                    })
-                  }
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val)) {
+                      onUpdateField({
+                        ...selectedField,
+                        box: { ...selectedField.box, height: Math.max(0.005, Math.min(1, val / 100)) },
+                      });
+                    }
+                  }}
                   className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono"
                 />
               </div>

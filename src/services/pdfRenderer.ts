@@ -199,7 +199,7 @@ export class PdfRendererService {
             height: Math.max(0.01, Math.min(1, normH)),
           },
           value: annot.fieldValue || '',
-          fontFamily: 'Nikosh',
+          fontFamily: 'Kalpurush',
           fontSize: 12,
           autoFontSize: true,
           color: '#1a1a1a',

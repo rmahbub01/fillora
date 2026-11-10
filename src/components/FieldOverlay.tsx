@@ -177,7 +177,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
           isSelected
             ? 'ring-2 ring-indigo-500 shadow-md bg-indigo-50/50 z-30'
             : 'hover:ring-1 hover:ring-indigo-400 hover:bg-indigo-50/25 z-10'
-        } ${field.locked ? 'cursor-pointer' : 'cursor-move border-2 border-dashed border-amber-500 bg-amber-50/20'}`}
+        } ${field.locked ? 'cursor-pointer' : 'cursor-move border-2 border-dashed border-indigo-400 bg-indigo-50/20'}`}
         style={{
           left: `${pixelLeft}px`,
           top: `${pixelTop}px`,
@@ -207,7 +207,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
                 onChange({ ...field, locked: !field.locked }, true);
               }}
               title={field.locked ? 'Unlock (allow move/resize)' : 'Lock (freeze position)'}
-              className={`p-0.5 rounded transition ${field.locked ? 'text-gray-300 hover:text-white' : 'text-amber-400 hover:text-amber-300'}`}
+              className={`p-0.5 rounded transition ${field.locked ? 'text-gray-300 hover:text-white' : 'text-indigo-400 hover:text-indigo-300'}`}
             >
               {field.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
             </button>
@@ -232,22 +232,22 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
           <>
             <div
               onMouseDown={(e) => handleMouseDownResize('nw', e)}
-              className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-amber-600 rounded-xs shadow-md cursor-nwse-resize z-40"
+              className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40"
               title="Resize checkbox"
             />
             <div
               onMouseDown={(e) => handleMouseDownResize('ne', e)}
-              className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-amber-600 rounded-xs shadow-md cursor-nesw-resize z-40"
+              className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40"
               title="Resize checkbox"
             />
             <div
               onMouseDown={(e) => handleMouseDownResize('se', e)}
-              className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-amber-600 rounded-xs shadow-md cursor-nwse-resize z-40"
+              className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40"
               title="Resize checkbox"
             />
             <div
               onMouseDown={(e) => handleMouseDownResize('sw', e)}
-              className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-amber-600 rounded-xs shadow-md cursor-nesw-resize z-40"
+              className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40"
               title="Resize checkbox"
             />
           </>
@@ -267,7 +267,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
           : field.value
           ? 'hover:ring-1 hover:ring-indigo-300 hover:bg-white/40 z-10'
           : 'border border-indigo-200/50 bg-indigo-50/10 hover:border-indigo-400 hover:bg-indigo-50/25 z-10'
-      } ${!field.locked ? 'border-2 border-dashed border-amber-500 bg-amber-50/10' : ''}`}
+      } ${!field.locked && isSelected ? 'border border-dashed border-indigo-400' : ''}`}
       style={{
         left: `${pixelLeft}px`,
         top: `${pixelTop}px`,
@@ -275,23 +275,47 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
         height: `${pixelHeight}px`,
       }}
     >
-      {/* Floating control bar when selected and locked */}
-      {isSelected && field.locked && (
-        <div className="absolute -top-7 left-0 flex items-center space-x-1 bg-gray-900 text-white text-xs px-2 py-0.5 rounded shadow-lg z-50 pointer-events-auto">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange({ ...field, locked: false }, true);
-            }}
-            title="Click to Unlock (allows moving and resizing with mouse)"
-            className="p-0.5 rounded text-gray-300 hover:text-white transition flex items-center space-x-1"
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span className="text-[10px]">Locked</span>
-          </button>
+      {/* Floating control bar when selected (consistent with overlay text boxes) */}
+      {isSelected && (
+        <div className="absolute -top-7 left-0 flex items-center space-x-1.5 bg-gray-900 text-white text-xs px-2 py-0.5 rounded shadow-lg z-50 pointer-events-auto">
+          {field.locked ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange({ ...field, locked: false }, true);
+              }}
+              title="Click to Unlock (allows moving and resizing with mouse)"
+              className="p-0.5 rounded text-gray-300 hover:text-white transition flex items-center space-x-1"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span className="text-[10px]">Locked</span>
+            </button>
+          ) : (
+            <div
+              onMouseDown={handleMouseDownMove}
+              title="Click and drag to move this field anywhere on the PDF"
+              className="flex items-center space-x-1 cursor-move select-none"
+            >
+              <GripHorizontal className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="text-[10px] font-semibold tracking-wide uppercase text-indigo-200">Move Field</span>
+            </div>
+          )}
           <span className="text-[10px] text-gray-400 font-mono uppercase">{field.type}</span>
           <div className="w-[1px] h-3 bg-gray-700" />
+          {!field.locked && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange({ ...field, locked: true }, true);
+              }}
+              title="Lock field in place"
+              className="p-0.5 text-gray-300 hover:text-white rounded transition"
+            >
+              <Unlock className="w-3.5 h-3.5 text-indigo-400" />
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => {
@@ -303,44 +327,6 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-        </div>
-      )}
-
-      {/* Prominent Move Bar Header when UNLOCKED */}
-      {!field.locked && (
-        <div
-          onMouseDown={handleMouseDownMove}
-          title="Click and drag to move this field anywhere on the PDF"
-          className="absolute -top-6 left-0 right-0 h-6 bg-amber-500 hover:bg-amber-600 text-white rounded-t-md px-2 flex items-center justify-between cursor-move shadow-md select-none z-50 transition-colors"
-        >
-          <div className="flex items-center space-x-1.5">
-            <GripHorizontal className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold tracking-wide uppercase">Move Field</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange({ ...field, locked: true }, true);
-              }}
-              title="Lock field in place"
-              className="p-0.5 hover:bg-amber-700 rounded transition"
-            >
-              <Lock className="w-3 h-3 text-white" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(field.id);
-              }}
-              title="Delete field"
-              className="p-0.5 hover:bg-red-600 rounded transition"
-            >
-              <Trash2 className="w-3 h-3 text-white" />
-            </button>
-          </div>
         </div>
       )}
 
@@ -365,7 +351,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
             onFocus={() => onSelect(field.id)}
             placeholder="Type here..."
             style={{
-              fontFamily: `"${field.fontFamily}", "Noto Sans Bengali", Kalpurush, sans-serif`,
+              fontFamily: `"${field.fontFamily}", Nikosh, "Noto Sans Bengali", Kalpurush, sans-serif`,
               fontSize: `${computedFontSize}px`,
               color: field.color,
               textAlign: field.hAlign,
@@ -396,7 +382,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
             onFocus={() => onSelect(field.id)}
             placeholder="Type here..."
             style={{
-              fontFamily: `"${field.fontFamily}", "Noto Sans Bengali", Kalpurush, sans-serif`,
+              fontFamily: `"${field.fontFamily}", Nikosh, "Noto Sans Bengali", Kalpurush, sans-serif`,
               fontSize: `${computedFontSize}px`,
               color: field.color,
               textAlign: field.hAlign,

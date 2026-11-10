@@ -115,7 +115,7 @@ export class HeuristicDetector {
       label: item.type === 'checkbox' ? `Checkbox ${idx + 1}` : `Field ${idx + 1}`,
       box: item.box,
       value: '',
-      fontFamily: 'Kalpurush',
+      fontFamily: 'Nikosh',
       fontSize: item.type === 'textarea' ? 11 : 12,
       autoFontSize: true,
       color: '#111827',

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { ModelType, DetectionScope } from '../types/pdf';
 import {
   Upload,
@@ -50,7 +50,25 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onOpenPrivacyModal,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
   const [showModelMenu, setShowModelMenu] = useState(false);
+
+  useEffect(() => {
+    if (!showModelMenu) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (modelMenuRef.current && !modelMenuRef.current.contains(event.target as Node)) {
+        setShowModelMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showModelMenu]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -67,8 +85,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         return 'FFDNet-L (Large)';
       case 'heuristic':
         return 'Instant Visual';
-      case 'hybrid':
-        return 'Hybrid (AI + Visual)';
     }
   };
 
@@ -132,7 +148,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         <div className="w-[1px] h-5 bg-gray-200" />
 
         {/* Model Selector & Scope Selector */}
-        <div className="relative">
+        <div className="relative" ref={modelMenuRef}>
           <button
             onClick={() => setShowModelMenu(!showModelMenu)}
             className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200/80 rounded-lg text-xs font-medium text-gray-700 flex items-center space-x-1.5 transition"
@@ -170,7 +186,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
               <button
                 onClick={() => onSelectModel('ffdnet-l')}
-                className={`w-full text-left p-2 rounded-lg transition mb-1 flex items-start space-x-2 ${
+                className={`w-full text-left p-2 rounded-lg transition flex items-start space-x-2 ${
                   selectedModel === 'ffdnet-l' ? 'bg-indigo-50 border border-indigo-200 text-indigo-900' : 'hover:bg-gray-50'
                 }`}
               >
@@ -182,21 +198,6 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                   </div>
                   <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
                     Deep 25M-param detector. Maximum precision for complex layouts & scanned pages.
-                  </p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => onSelectModel('hybrid')}
-                className={`w-full text-left p-2 rounded-lg transition flex items-start space-x-2 ${
-                  selectedModel === 'hybrid' ? 'bg-indigo-50 border border-indigo-200 text-indigo-900' : 'hover:bg-gray-50'
-                }`}
-              >
-                <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-gray-900">Hybrid (AI + Visual)</div>
-                  <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">
-                    Combines neural detection with contour underlines & native AcroForms.
                   </p>
                 </div>
               </button>

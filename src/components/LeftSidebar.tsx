@@ -30,21 +30,21 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Lazy generate thumbnails for visible pages
+  // Generate thumbnails whenever document pageInfos changes
   useEffect(() => {
     let isCancelled = false;
+    // Reset thumbnails immediately so previous PDF's preview is never held
+    setThumbnails({});
 
     const loadThumbs = async () => {
       for (const info of pageInfos) {
-        if (!thumbnails[info.pageIndex]) {
-          try {
-            const dataUrl = await pdfRenderer.renderThumbnail(info.pageIndex, 140);
-            if (!isCancelled) {
-              setThumbnails((prev) => ({ ...prev, [info.pageIndex]: dataUrl }));
-            }
-          } catch (e) {
-            console.warn('Thumbnail generation failed for page', info.pageIndex, e);
+        try {
+          const dataUrl = await pdfRenderer.renderThumbnail(info.pageIndex, 140);
+          if (!isCancelled) {
+            setThumbnails((prev) => ({ ...prev, [info.pageIndex]: dataUrl }));
           }
+        } catch (e) {
+          console.warn('Thumbnail generation failed for page', info.pageIndex, e);
         }
       }
     };

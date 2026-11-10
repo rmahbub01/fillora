@@ -56,6 +56,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
       }
     } catch (err) {
       alert(`Could not load font file: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -73,16 +75,16 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".ttf,.otf,.woff"
+            accept=".ttf,.otf,.woff,.woff2"
             onChange={handleFontUpload}
             className="hidden"
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full py-2 px-3 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-600 hover:bg-indigo-50/50 flex items-center justify-center space-x-2 transition"
+            className="w-full py-2 px-3 border border-dashed border-indigo-300 rounded-xl text-xs text-indigo-600 hover:bg-indigo-50/50 flex items-center justify-center space-x-2 transition cursor-pointer"
           >
             <Upload className="w-4 h-4" />
-            <span>Upload Custom Font (TTF/OTF)</span>
+            <span>Upload Custom Font (TTF / OTF / WOFF / WOFF2)</span>
           </button>
           <p className="text-[10px] text-gray-400 mt-2">
             Upload custom Bangla or branded fonts to use throughout the document.
@@ -283,17 +285,17 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".ttf,.otf"
+                accept=".ttf,.otf,.woff,.woff2"
                 onChange={handleFontUpload}
                 className="hidden"
               />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-2 w-full py-1.5 px-2 border border-dashed border-gray-300 hover:border-indigo-400 text-gray-600 hover:text-indigo-600 rounded-lg text-[11px] flex items-center justify-center space-x-1.5 transition"
+                className="mt-2 w-full py-1.5 px-2 border border-dashed border-gray-300 hover:border-indigo-400 text-gray-600 hover:text-indigo-600 rounded-lg text-[11px] flex items-center justify-center space-x-1.5 transition cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>Upload TTF / OTF Font</span>
+                <span>Upload Custom Font (TTF / OTF / WOFF / WOFF2)</span>
               </button>
             </div>
 
@@ -321,15 +323,16 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   selectedField.box.width * 595,
                   selectedField.box.height * 842
                 );
+                const currentDisplaySize = selectedField.autoFontSize ? effectiveSize : selectedField.fontSize;
                 return (
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     <div className="flex items-center space-x-2">
                       <input
                         type="range"
                         min="6"
-                        max="36"
+                        max="72"
                         step="0.5"
-                        value={selectedField.autoFontSize ? effectiveSize : selectedField.fontSize}
+                        value={currentDisplaySize}
                         onChange={(e) => {
                           const val = Number(e.target.value);
                           onUpdateField({ ...selectedField, fontSize: val, autoFontSize: false });
@@ -337,13 +340,36 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                         className="flex-1 accent-indigo-600 cursor-pointer"
                         title={selectedField.autoFontSize ? 'Drag slider to override auto-fit size' : 'Font size slider'}
                       />
-                      <span className="font-mono text-xs w-14 text-right text-gray-700 font-semibold">
-                        {selectedField.autoFontSize ? `${effectiveSize}pt` : `${selectedField.fontSize}pt`}
-                      </span>
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <input
+                          type="number"
+                          min="1"
+                          max="144"
+                          step="0.5"
+                          value={currentDisplaySize}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val > 0) {
+                              onUpdateField({
+                                ...selectedField,
+                                fontSize: Math.min(144, Math.max(1, Math.round(val * 10) / 10)),
+                                autoFontSize: false,
+                              });
+                            }
+                          }}
+                          className="w-16 px-1.5 py-1 text-xs font-mono font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-md text-center focus:bg-white focus:border-indigo-500 focus:outline-none"
+                          title="Manually insert exact font size in points (pt)"
+                        />
+                        <span className="text-[11px] font-mono text-gray-400">pt</span>
+                      </div>
                     </div>
-                    {selectedField.autoFontSize && (
+                    {selectedField.autoFontSize ? (
                       <p className="text-[10px] text-indigo-600 font-medium">
-                        ✦ Auto-scaled to {effectiveSize}pt (adjust slider to set manually)
+                        ✦ Auto-scaled to {effectiveSize}pt (edit number or slider to override)
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-gray-400">
+                        Manual font size: {selectedField.fontSize}pt (check Auto-Fit to reset)
                       </p>
                     )}
                   </div>

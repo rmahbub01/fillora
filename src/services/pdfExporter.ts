@@ -117,7 +117,7 @@ export class PdfExporterService {
       ? `"${field.fontFamily}"`
       : field.fontFamily;
     
-    ctx.font = `${fontSizePx}px ${fontFamily}, "Noto Sans Bengali", Kalpurush, sans-serif`;
+    ctx.font = `${fontSizePx}px ${fontFamily}, Nikosh, "Noto Sans Bengali", Kalpurush, sans-serif`;
     ctx.fillStyle = field.color || '#000000';
     ctx.textBaseline = 'alphabetic';
 

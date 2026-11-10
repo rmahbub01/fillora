@@ -13,7 +13,7 @@ export type CheckboxState = 'empty' | 'check' | 'cross' | 'dot';
 export type HorizontalAlign = 'left' | 'center' | 'right';
 export type VerticalAlign = 'top' | 'middle' | 'bottom';
 
-export type ModelType = 'ffdnet-s' | 'ffdnet-l' | 'heuristic' | 'hybrid';
+export type ModelType = 'ffdnet-s' | 'ffdnet-l' | 'heuristic';
 export type DetectionScope = 'current' | 'all';
 
 export interface BoundingBox {

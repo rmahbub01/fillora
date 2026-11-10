@@ -53,13 +53,13 @@ export class AiDetectorService {
     }
 
     // 2. FFDNet-S / FFDNet-L Neural Detection
-    if (modelType === 'ffdnet-s' || modelType === 'ffdnet-l' || modelType === 'hybrid') {
+    if (modelType === 'ffdnet-s' || modelType === 'ffdnet-l') {
       onProgress?.(10, 'Rendering document page for neural analysis...');
       const targetSize = 1216;
       const imageData = await pdfRenderer.renderPageForInference(pageIndex, targetSize, targetSize);
 
       const worker = this.getWorker();
-      const targetModel = modelType === 'hybrid' ? 'ffdnet-s' : modelType;
+      const targetModel = modelType;
 
       const rawDetections = await new Promise<DetectionWorkerResult[]>((resolve, reject) => {
         const handler = (e: MessageEvent) => {
@@ -128,7 +128,7 @@ export class AiDetectorService {
             height: pageNormH,
           },
           value: '',
-          fontFamily: 'Kalpurush',
+          fontFamily: 'Nikosh',
           fontSize: isMultiline ? 11 : 12,
           autoFontSize: true,
           color: '#111827',
@@ -144,15 +144,7 @@ export class AiDetectorService {
 
       // Also merge AcroForms if any exist
       const acroFields = await pdfRenderer.extractAcroForms(pageIndex);
-      let merged = this.mergeFieldLists(acroFields, aiFields);
-
-      // If hybrid mode, also check for any missed visual underlines/rectangles
-      if (modelType === 'hybrid') {
-        const tempCanvas = document.createElement('canvas');
-        await pdfRenderer.renderPageToCanvas(pageIndex, tempCanvas, 1.2);
-        const heuristicFields = heuristicDetector.detectFieldsFromCanvas(tempCanvas, pageIndex, pageInfo);
-        merged = this.mergeFieldLists(merged, heuristicFields);
-      }
+      const merged = this.mergeFieldLists(acroFields, aiFields);
 
       // Sort widgets in reading order
       return this.sortWidgets(merged);

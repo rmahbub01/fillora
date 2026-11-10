@@ -158,7 +158,7 @@ export const App: React.FC = () => {
         height: isCheckbox ? 0.025 : 0.035,
       },
       value: '',
-      fontFamily: 'Kalpurush',
+      fontFamily: 'Nikosh',
       fontSize: 12,
       autoFontSize: true,
       color: '#111827',

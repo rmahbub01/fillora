@@ -47,17 +47,20 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   const effectiveFontSizePts = getEffectiveFontSizePts(field, fieldWidthPts, fieldHeightPts);
   const computedFontSize = effectiveFontSizePts * scale;
 
+  // Headroom padding so Bengali ascenders (ি, ী, র্ক, ঁ) are never clipped by the textarea in Tight/Compact line spacing
+  const padTopPx = Math.max(6, Math.ceil(computedFontSize * 0.35));
+  const padBottomPx = Math.max(4, Math.ceil(computedFontSize * 0.20));
+
   // Auto-grow textarea height so text grows outside the box without clipping
   useEffect(() => {
     if (field.multiline && inputRef.current) {
       const textarea = inputRef.current as HTMLTextAreaElement;
       textarea.style.height = 'auto';
       const scrollH = textarea.scrollHeight;
-      const targetH = Math.max(pixelHeight, scrollH);
-      textarea.style.height = `${targetH}px`;
-      setMultilineHeight(targetH);
+      textarea.style.height = `${scrollH}px`;
+      setMultilineHeight(scrollH);
     }
-  }, [field.value, field.multiline, pixelHeight, computedFontSize]);
+  }, [field.value, field.multiline, field.vAlign, field.lineHeight, pixelHeight, computedFontSize, scale]);
 
 
   const handleMouseDownMove = (e: React.MouseEvent) => {
@@ -293,8 +296,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
         left: `${pixelLeft}px`,
         top: `${pixelTop}px`,
         width: `${pixelWidth}px`,
-        height: field.multiline ? `${Math.max(pixelHeight, multilineHeight)}px` : `${pixelHeight}px`,
-        minHeight: `${pixelHeight}px`,
+        height: `${pixelHeight}px`,
         overflow: 'visible',
       }}
     >
@@ -356,12 +358,20 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       {/* Actual Input Overlay */}
       {field.multiline ? (
         <div
-          className="w-full flex flex-col justify-start"
+          onClick={() => (inputRef.current as HTMLTextAreaElement | null)?.focus()}
+          className={`w-full h-full flex flex-col ${
+            field.vAlign === 'middle'
+              ? 'justify-center'
+              : field.vAlign === 'bottom'
+              ? 'justify-end'
+              : 'justify-start'
+          }`}
           style={{
             paddingLeft: `${Math.max(2, 4 * scale)}px`,
             paddingRight: `${Math.max(2, 4 * scale)}px`,
             paddingTop: '0px',
             paddingBottom: '0px',
+            overflow: 'visible',
           }}
         >
           <textarea
@@ -371,7 +381,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
               onChange({ ...field, value: e.target.value }, true);
               if (field.multiline) {
                 e.target.style.height = 'auto';
-                const newH = Math.max(pixelHeight, e.target.scrollHeight);
+                const newH = e.target.scrollHeight;
                 e.target.style.height = `${newH}px`;
                 setMultilineHeight(newH);
               }
@@ -384,14 +394,16 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
               fontSize: `${computedFontSize}px`,
               color: field.color,
               textAlign: field.hAlign,
-              lineHeight: 1.35,
-              paddingTop: '0px',
-              paddingBottom: '0px',
-              minHeight: `${pixelHeight}px`,
-              height: `${Math.max(pixelHeight, multilineHeight)}px`,
+              lineHeight: field.lineHeight ?? 1.35,
+              paddingTop: `${padTopPx}px`,
+              paddingBottom: `${padBottomPx}px`,
+              marginTop: `-${padTopPx}px`,
+              height: multilineHeight ? `${multilineHeight}px` : 'auto',
               overflow: 'visible',
+              overflowWrap: 'break-word',
+              wordBreak: 'break-word',
             }}
-            className="w-full bg-transparent resize-none outline-none border-none p-0 m-0 text-gray-900 font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal"
+            className="w-full bg-transparent resize-none outline-none border-none p-0 m-0 text-gray-900 font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal break-words"
           />
         </div>
       ) : (

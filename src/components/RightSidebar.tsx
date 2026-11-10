@@ -22,6 +22,9 @@ import {
   Trash2,
   Copy,
   Info,
+  Baseline,
+  Minus,
+  Plus,
 } from 'lucide-react';
 
 interface RightSidebarProps {
@@ -454,6 +457,106 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
               />
             </div>
+
+            {/* Line Spacing / Line Height in Multiline Mode */}
+            {selectedField.multiline && (
+              <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-100 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <Baseline className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="text-xs font-semibold text-gray-700">Line Spacing</span>
+                  </div>
+                  <span className="text-xs font-mono font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                    {Number(selectedField.lineHeight ?? 1.35).toFixed(2)}x
+                  </span>
+                </div>
+
+                {/* Quick Presets to reduce or adjust line spacing */}
+                <div className="grid grid-cols-4 gap-1">
+                  {[
+                    { label: 'Tight', value: 1.0 },
+                    { label: 'Compact', value: 1.15 },
+                    { label: 'Normal', value: 1.35 },
+                    { label: 'Relaxed', value: 1.6 },
+                  ].map((preset) => {
+                    const currentVal = selectedField.lineHeight ?? 1.35;
+                    const isActive = Math.abs(currentVal - preset.value) < 0.03;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => onUpdateField({ ...selectedField, lineHeight: preset.value })}
+                        className={`py-1 text-[11px] rounded transition ${
+                          isActive
+                            ? 'bg-indigo-600 text-white font-medium shadow-xs'
+                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                        }`}
+                        title={`Set line spacing to ${preset.value}x`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Fine-Tuning Step Controls & Custom Numeric Input */}
+                <div className="flex items-center space-x-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = selectedField.lineHeight ?? 1.35;
+                      const next = Math.max(0.7, Math.round((cur - 0.05) * 100) / 100);
+                      onUpdateField({ ...selectedField, lineHeight: next });
+                    }}
+                    title="Reduce line spacing (-0.05)"
+                    className="p-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-xs"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+
+                  <input
+                    type="range"
+                    min="0.7"
+                    max="2.5"
+                    step="0.05"
+                    value={selectedField.lineHeight ?? 1.35}
+                    onChange={(e) => onUpdateField({ ...selectedField, lineHeight: parseFloat(e.target.value) })}
+                    className="flex-1 accent-indigo-600 h-1.5 bg-gray-200 rounded-lg cursor-pointer"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cur = selectedField.lineHeight ?? 1.35;
+                      const next = Math.min(3.0, Math.round((cur + 0.05) * 100) / 100);
+                      onUpdateField({ ...selectedField, lineHeight: next });
+                    }}
+                    title="Increase line spacing (+0.05)"
+                    className="p-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-xs"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+
+                  {/* Direct Numeric Input for any custom value */}
+                  <div className="w-16">
+                    <input
+                      type="number"
+                      min="0.5"
+                      max="3.0"
+                      step="0.05"
+                      value={selectedField.lineHeight ?? 1.35}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val) && val >= 0.5 && val <= 3.0) {
+                          onUpdateField({ ...selectedField, lineHeight: val });
+                        }
+                      }}
+                      className="w-full px-1.5 py-1 text-xs text-center font-mono bg-white border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

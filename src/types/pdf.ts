@@ -40,6 +40,7 @@ export interface FormField {
   hAlign: HorizontalAlign;
   vAlign: VerticalAlign;
   multiline: boolean;
+  lineHeight?: number; // Line spacing multiplier in multi-line mode (default: 1.35)
   
   // Checkbox specific
   checkboxState: CheckboxState;

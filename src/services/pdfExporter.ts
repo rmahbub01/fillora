@@ -153,9 +153,10 @@ export class PdfExporterService {
 
     if (field.multiline) {
       // Top and bottom padding removed in multi-line mode; text starts directly at top
-      const padX = 4 * scaleFactor;
+      const padXPts = 4;
+      const padXPx = padXPts * scaleFactor;
       const padY = 0;
-      const availableWidth = Math.max(10, widthPts * scaleFactor - padX * 2);
+      const availableWidth = Math.max(10, widthPts * scaleFactor - padXPx * 2);
 
       // Preserve explicit newlines and word-wrap each paragraph within available width
       const paragraphs = field.value.split('\n');
@@ -170,25 +171,30 @@ export class PdfExporterService {
         let currentLine = '';
 
         for (const word of words) {
+          // If the word itself is wider than availableWidth, break it by character
+          if (measureCtx.measureText(word).width > availableWidth) {
+            if (currentLine) {
+              lines.push(currentLine);
+              currentLine = '';
+            }
+            let chunk = '';
+            for (const ch of word) {
+              if (measureCtx.measureText(chunk + ch).width > availableWidth && chunk) {
+                lines.push(chunk);
+                chunk = ch;
+              } else {
+                chunk += ch;
+              }
+            }
+            currentLine = chunk;
+            continue;
+          }
+
           const testLine = currentLine ? `${currentLine} ${word}` : word;
           const metrics = measureCtx.measureText(testLine);
           if (metrics.width > availableWidth && currentLine) {
             lines.push(currentLine);
-            // If the single word itself is wider than availableWidth, break by character
-            if (measureCtx.measureText(word).width > availableWidth) {
-              let chunk = '';
-              for (const ch of word) {
-                if (measureCtx.measureText(chunk + ch).width > availableWidth && chunk) {
-                  lines.push(chunk);
-                  chunk = ch;
-                } else {
-                  chunk += ch;
-                }
-              }
-              currentLine = chunk;
-            } else {
-              currentLine = word;
-            }
+            currentLine = word;
           } else {
             currentLine = testLine;
           }
@@ -196,14 +202,75 @@ export class PdfExporterService {
         if (currentLine) lines.push(currentLine);
       }
 
-      const lineHeightPx = fontSizePx * 1.35;
+      // Measure maximum line width across all wrapped lines
+      let maxLineWPx = 0;
+      for (const line of lines) {
+        if (line) {
+          const w = measureCtx.measureText(line).width;
+          if (w > maxLineWPx) maxLineWPx = w;
+        }
+      }
+      const maxLineWPts = maxLineWPx / scaleFactor;
+
+      const lineSpacing = field.lineHeight ?? 1.35;
+      const lineHeightPx = fontSizePx * lineSpacing;
+      // In CSS, line boxes distribute half the extra space between line-height and font-size to the top and bottom.
+      // Applying this exact half-leading ensures line 0 starts comfortably inside the box boundary with exact browser parity.
+      const halfLeadingPx = (lineHeightPx - fontSizePx) / 2;
       const totalTextHPx = Math.max(1, lines.length) * lineHeightPx;
+      const totalTextHPts = totalTextHPx / scaleFactor;
       // Allow text to grow outside the original box height if content requires more vertical space
       const actualHeightPts = Math.max(heightPts, totalTextHPx / scaleFactor);
 
-      // Re-dimension canvas height to accommodate growing text without clipping
-      canvas.width = Math.ceil(widthPts * scaleFactor);
-      canvas.height = Math.ceil(actualHeightPts * scaleFactor);
+      // Vertical offset within the bounding box based on field.vAlign (top, middle, bottom)
+      let vOffsetPts = 0;
+      if (field.vAlign === 'middle') {
+        vOffsetPts = (heightPts - totalTextHPts) / 2;
+      } else if (field.vAlign === 'bottom') {
+        vOffsetPts = heightPts - totalTextHPts;
+      }
+      const vOffsetPx = vOffsetPts * scaleFactor;
+
+      // Calculate directional bleed to prevent ascenders, descenders, or horizontal text from being cut
+      let bleedTopPts = Math.ceil(effectiveSizePts * 0.35 + 4);
+      const bleedBottomExtraPts = Math.ceil(effectiveSizePts * 0.35 + 4);
+      let bleedBottomPts = (actualHeightPts - heightPts) + bleedBottomExtraPts;
+
+      if (vOffsetPts < 0) {
+        bleedTopPts += Math.ceil(-vOffsetPts);
+      }
+      if (field.vAlign === 'bottom' && vOffsetPts < 0) {
+        bleedBottomPts = bleedBottomExtraPts;
+      } else if (field.vAlign === 'middle' && vOffsetPts < 0) {
+        bleedBottomPts = Math.ceil(-vOffsetPts) + bleedBottomExtraPts;
+      }
+
+      let bleedLeftPts = 4;
+      let bleedRightPts = 4;
+
+      if (field.hAlign === 'left') {
+        const neededWidthPts = padXPts + maxLineWPts;
+        if (neededWidthPts > widthPts) {
+          bleedRightPts = Math.ceil(neededWidthPts - widthPts + 8);
+        }
+      } else if (field.hAlign === 'center') {
+        if (maxLineWPts > widthPts - padXPts * 2) {
+          const extraH = (maxLineWPts - (widthPts - padXPts * 2)) / 2 + 8;
+          bleedLeftPts = Math.ceil(extraH);
+          bleedRightPts = Math.ceil(extraH);
+        }
+      } else if (field.hAlign === 'right') {
+        const neededWidthPts = padXPts + maxLineWPts;
+        if (neededWidthPts > widthPts) {
+          bleedLeftPts = Math.ceil(neededWidthPts - widthPts + 8);
+        }
+      }
+
+      const canvasWidthPts = widthPts + bleedLeftPts + bleedRightPts;
+      const canvasHeightPts = heightPts + bleedTopPts + bleedBottomPts;
+
+      canvas.width = Math.ceil(canvasWidthPts * scaleFactor);
+      canvas.height = Math.ceil(canvasHeightPts * scaleFactor);
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
@@ -212,18 +279,22 @@ export class PdfExporterService {
       ctx.fillStyle = field.color || '#000000';
       ctx.textBaseline = 'top';
 
+      const boxLeftPx = bleedLeftPts * scaleFactor;
+      const boxTopPx = bleedTopPts * scaleFactor;
+      const boxWidthPx = widthPts * scaleFactor;
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (!line) continue;
-        const lineY = i * lineHeightPx;
+        const lineY = boxTopPx + vOffsetPx + halfLeadingPx + i * lineHeightPx;
 
-        let lineX = padX;
+        let lineX = boxLeftPx + padXPx;
         if (field.hAlign === 'center') {
           const w = ctx.measureText(line).width;
-          lineX = (canvas.width - w) / 2;
+          lineX = boxLeftPx + (boxWidthPx - w) / 2;
         } else if (field.hAlign === 'right') {
           const w = ctx.measureText(line).width;
-          lineX = canvas.width - padX - w;
+          lineX = boxLeftPx + boxWidthPx - padXPx - w;
         }
 
         ctx.fillText(line, lineX, lineY);
@@ -234,10 +305,10 @@ export class PdfExporterService {
         bytes,
         actualHeightPts,
         renderInfo: {
-          drawXOffset: 0,
-          drawYOffset: actualHeightPts - heightPts,
-          totalWidthPts: widthPts,
-          totalHeightPts: actualHeightPts,
+          drawXOffset: bleedLeftPts,
+          drawYOffset: bleedBottomPts,
+          totalWidthPts: canvasWidthPts,
+          totalHeightPts: canvasHeightPts,
         },
       };
     } else {

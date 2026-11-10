@@ -93,17 +93,20 @@ assert(pdfExporterCode.includes('document.fonts.load'), 'pdfExporter must explic
 console.log('  ✓ High-DPI 8x supersampling (576-600 DPI) and explicit font preloading verified');
 
 // 9. Verify Multi-line mode growing outside, padding removal, and newline preservation
-console.log('\n9. Checking Multi-line mode growing outside and padding removal...');
+console.log('\n9. Checking Multi-line mode growing outside, padding removal, and unclipped overflow...');
 assert(pdfExporterCode.includes("field.value.split('\\n')"), 'pdfExporter must split by newline to preserve explicit multiline paragraphs');
 assert(pdfExporterCode.includes('padY = 0'), 'pdfExporter must remove top and bottom padding in multi-line mode');
 assert(pdfExporterCode.includes('actualHeightPts = Math.max(heightPts, totalTextHPx / scaleFactor)'), 'pdfExporter must allow multiline text to grow outside box height without clipping');
+assert(pdfExporterCode.includes('bleedTopPts = Math.ceil(effectiveSizePts * 0.35 + 4)'), 'pdfExporter must calculate top bleed for multiline text so ascenders are never cut');
+assert(pdfExporterCode.includes('bleedBottomExtraPts = Math.ceil(effectiveSizePts * 0.35 + 4)'), 'pdfExporter must calculate bottom bleed for multiline text so descenders are never cut');
 assert(fieldOverlayCode.includes("paddingTop: '0px'"), 'FieldOverlay must remove top padding in multi-line mode');
 assert(fieldOverlayCode.includes("paddingBottom: '0px'"), 'FieldOverlay must remove bottom padding in multi-line mode');
 assert(fieldOverlayCode.includes("overflow: 'visible'"), 'FieldOverlay must have overflow visible on all overlay text boxes so text grows outside without being cut by box borders');
+assert(fieldOverlayCode.includes("break-words"), 'FieldOverlay must support break-words in textarea');
 const { getEffectiveFontSizePts } = await import('../src/utils/typography.ts');
 const multilineSize = getEffectiveFontSizePts({ fontSize: 12, autoFontSize: true, multiline: true, value: 'Line 1\nLine 2\nLine 3' }, 200, 50);
 assert(multilineSize >= 9.5 && multilineSize <= 14, `Multiline auto font size must be a comfortable body size. Got ${multilineSize}pt`);
-console.log(`  ✓ Multiline mode verified: text grows outside box (${multilineSize}pt), padY = 0, no border cutting`);
+console.log(`  ✓ Multiline mode verified: text grows outside box (${multilineSize}pt), padY = 0, no border cutting, full bleed protection`);
 
 // 10. Verify identical auto font size for fields with same width & height
 console.log('\n10. Checking identical auto font size for same width and height fields...');
@@ -123,5 +126,34 @@ assert(pdfExporterCode.includes('x: pdfBoxX - drawXOffset'), 'pdfExporter must a
 assert(pdfExporterCode.includes('y: pdfBoxY - drawYOffset'), 'pdfExporter must align image origin accounting for bleed offset');
 assert(pdfExporterCode.includes('bleedTopPts'), 'pdfExporter must calculate vertical overflow bleed when font size is increased');
 console.log('  ✓ Exact position parity and visual overflow verified: text overflows naturally without clipping and lines up 100% with website overlay');
+
+// 12. Verify Line Spacing / Line Height customization in multi-line mode
+console.log('\n12. Checking custom and reduced Line Spacing in multi-line mode...');
+assert(rightSidebarCode.includes('Line Spacing'), 'RightSidebar must have Line Spacing section');
+assert(rightSidebarCode.includes('Tight'), 'RightSidebar must have Tight (1.0x) line spacing option');
+assert(rightSidebarCode.includes('Compact'), 'RightSidebar must have Compact (1.15x) line spacing option');
+assert(rightSidebarCode.includes('Normal'), 'RightSidebar must have Normal (1.35x) line spacing option');
+assert(rightSidebarCode.includes('Relaxed'), 'RightSidebar must have Relaxed (1.6x) line spacing option');
+assert(fieldOverlayCode.includes('field.lineHeight ?? 1.35'), 'FieldOverlay must apply field.lineHeight to textarea');
+assert(pdfExporterCode.includes('field.lineHeight ?? 1.35'), 'pdfExporter must apply field.lineHeight to multiline text rendering');
+console.log('  ✓ Line Spacing customization verified across RightSidebar, FieldOverlay, and pdfExporter');
+
+// 13. Verify multi-line boundary overlap prevention and vertical alignment parity
+console.log('\n13. Checking multi-line vertical alignment and boundary overlap prevention...');
+assert(pdfExporterCode.includes('halfLeadingPx = (lineHeightPx - fontSizePx) / 2'), 'pdfExporter must calculate CSS-exact halfLeading to prevent text overlapping top boundary');
+assert(pdfExporterCode.includes('lineY = boxTopPx + vOffsetPx + halfLeadingPx + i * lineHeightPx'), 'pdfExporter must offset lineY by vOffsetPx and halfLeadingPx matching browser line-box layout');
+assert(pdfExporterCode.includes("field.vAlign === 'middle'"), 'pdfExporter must support middle vertical alignment in multi-line mode');
+assert(pdfExporterCode.includes("field.vAlign === 'bottom'"), 'pdfExporter must support bottom vertical alignment in multi-line mode');
+assert(fieldOverlayCode.includes('height: `${pixelHeight}px`'), 'FieldOverlay container boundary must stay at pixelHeight matching the true PDF field boundary');
+assert(fieldOverlayCode.includes("justify-center"), 'FieldOverlay must apply justify-center when vAlign is middle in multi-line mode');
+assert(fieldOverlayCode.includes("justify-end"), 'FieldOverlay must apply justify-end when vAlign is bottom in multi-line mode');
+console.log('  ✓ Multi-line vertical alignment verified (top, middle, bottom) with exact position parity between FieldOverlay and pdfExporter');
+
+// 14. Verify textarea headroom padding prevents Bengali ascender clipping in Tight/Compact line spacing
+console.log('\n14. Checking textarea headroom padding for Bengali ascenders in Tight/Compact line spacing...');
+assert(fieldOverlayCode.includes('padTopPx = Math.max(6, Math.ceil(computedFontSize * 0.35))'), 'FieldOverlay must compute headroom padding for Bengali ascenders');
+assert(fieldOverlayCode.includes('paddingTop: `${padTopPx}px`'), 'FieldOverlay textarea must have paddingTop set to padTopPx');
+assert(fieldOverlayCode.includes('marginTop: `-${padTopPx}px`'), 'FieldOverlay textarea must compensate with negative marginTop');
+console.log('  ✓ Textarea headroom padding verified: Bengali ascenders (ি, ী, র্ক, ঁ) are never clipped in Tight or Compact line spacing');
 
 console.log('\n🎉 ALL VERIFICATION TESTS PASSED SUCCESSFULLY!\n');

@@ -165,6 +165,7 @@ export const App: React.FC = () => {
       hAlign: 'left',
       vAlign: type === 'textarea' ? 'top' : 'middle',
       multiline: type === 'textarea',
+      lineHeight: 1.35,
       checkboxState: 'empty',
       locked: false, // Unlocked when created manually so user can position
       source: 'manual',

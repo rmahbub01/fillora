@@ -38,8 +38,8 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   // Calculate actual pixel dimensions inside the page viewport
   const pixelLeft = field.box.x * pageWidth * scale;
   const pixelTop = field.box.y * pageHeight * scale;
-  const pixelWidth = Math.max(12, field.box.width * pageWidth * scale);
-  const pixelHeight = Math.max(12, field.box.height * pageHeight * scale);
+  const pixelWidth = Math.max(4, field.box.width * pageWidth * scale);
+  const pixelHeight = Math.max(4, field.box.height * pageHeight * scale);
 
   // Exact unified typography calculation matching the PDF exporter
   const fieldWidthPts = field.box.width * pageWidth;
@@ -168,10 +168,10 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     const handleMouseUp = () => {
       const b = currentBoxRef.current;
       const cleanBox = {
-        x: Math.round(b.x * 1000) / 1000,
-        y: Math.round(b.y * 1000) / 1000,
-        width: Math.round(b.width * 1000) / 1000,
-        height: Math.round(b.height * 1000) / 1000,
+        x: Math.round(b.x * 10000) / 10000,
+        y: Math.round(b.y * 10000) / 10000,
+        width: Math.round(b.width * 10000) / 10000,
+        height: Math.round(b.height * 10000) / 10000,
       };
       // Commit final position to history once
       onChange({
@@ -199,14 +199,15 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
         onMouseDown={handleMouseDownMove}
         className={`absolute group select-none transition-all flex items-center justify-center ${
           isSelected
-            ? 'ring-2 ring-indigo-500 shadow-md bg-indigo-50/50 z-30'
-            : 'hover:ring-1 hover:ring-indigo-400 hover:bg-indigo-50/25 z-10'
+            ? 'ring-2 ring-indigo-500 ring-inset shadow-md bg-indigo-50/50 z-30'
+            : 'hover:ring-1 hover:ring-indigo-400 hover:ring-inset hover:bg-indigo-50/25 z-10'
         } ${field.locked ? 'cursor-pointer' : 'cursor-move border-2 border-dashed border-indigo-400 bg-indigo-50/20'}`}
         style={{
           left: `${pixelLeft}px`,
           top: `${pixelTop}px`,
           width: `${pixelWidth}px`,
           height: `${pixelHeight}px`,
+          boxSizing: 'border-box',
         }}
         title={`Checkbox: Click to toggle (${field.checkboxState}). ${field.locked ? 'Locked' : 'Unlocked (drag to move, drag corners to resize)'}`}
       >
@@ -280,6 +281,19 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     );
   }
 
+  // Dynamic box height growth:
+  // When font size is too big or text goes outside the overlay text box, the box height grows accordingly,
+  // expanding evenly in both sides (up and down), keeping position and initial center at initial state.
+  // The overlay text box container stays fixed in place without jumping around when changing alignments.
+  // When font size is equal or smaller than normal, the box height keeps its original state (pixelHeight).
+  const hasOverflowingText = Boolean(field.value && field.value.trim().length > 0);
+  const neededHeightPx = field.multiline
+    ? (hasOverflowingText && multilineHeight ? multilineHeight : pixelHeight)
+    : (hasOverflowingText ? Math.ceil(computedFontSize * 1.35) : pixelHeight);
+  const effectivePixelHeight = Math.max(pixelHeight, neededHeightPx);
+  const extraHeightPx = Math.max(0, effectivePixelHeight - pixelHeight);
+  const effectivePixelTop = pixelTop - extraHeightPx / 2;
+
   // Text / Multiline / Signature Field
   return (
     <div
@@ -287,16 +301,17 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       onClick={() => onSelect(field.id)}
       className={`absolute group transition-shadow ${
         isSelected
-          ? 'ring-2 ring-indigo-500 bg-white/85 shadow-sm z-30'
+          ? 'ring-2 ring-indigo-500 ring-inset bg-white/85 shadow-sm z-30'
           : field.value
-          ? 'hover:ring-1 hover:ring-indigo-300 hover:bg-white/40 z-10'
+          ? 'hover:ring-1 hover:ring-indigo-300 hover:ring-inset hover:bg-white/40 z-10'
           : 'border border-indigo-200/50 bg-indigo-50/10 hover:border-indigo-400 hover:bg-indigo-50/25 z-10'
       } ${!field.locked && isSelected ? 'border border-dashed border-indigo-400' : ''}`}
       style={{
         left: `${pixelLeft}px`,
-        top: `${pixelTop}px`,
+        top: `${effectivePixelTop}px`,
         width: `${pixelWidth}px`,
-        height: `${pixelHeight}px`,
+        height: `${effectivePixelHeight}px`,
+        boxSizing: 'border-box',
         overflow: 'visible',
       }}
     >
@@ -392,6 +407,9 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
             style={{
               fontFamily: `"${field.fontFamily}", Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`,
               fontSize: `${computedFontSize}px`,
+              fontWeight: field.bold ? 'bold' : 'normal',
+              fontStyle: field.italic ? 'italic' : 'normal',
+              textDecoration: [field.underline && 'underline', field.strikethrough && 'line-through'].filter(Boolean).join(' ') || 'none',
               color: field.color,
               textAlign: field.hAlign,
               lineHeight: field.lineHeight ?? 1.35,
@@ -418,6 +436,8 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
           style={{
             paddingLeft: `${Math.max(2, 4 * scale)}px`,
             paddingRight: `${Math.max(2, 4 * scale)}px`,
+            paddingTop: '0px',
+            paddingBottom: '0px',
             overflow: 'visible',
           }}
         >
@@ -431,9 +451,14 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
             style={{
               fontFamily: `"${field.fontFamily}", Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`,
               fontSize: `${computedFontSize}px`,
+              fontWeight: field.bold ? 'bold' : 'normal',
+              fontStyle: field.italic ? 'italic' : 'normal',
+              textDecoration: [field.underline && 'underline', field.strikethrough && 'line-through'].filter(Boolean).join(' ') || 'none',
               color: field.color,
               textAlign: field.hAlign,
-              lineHeight: 'normal',
+              lineHeight: 1.25,
+              paddingTop: '0px',
+              paddingBottom: '0px',
               overflow: 'visible',
             }}
             className="w-full bg-transparent outline-none border-none p-0 m-0 text-gray-900 font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal"

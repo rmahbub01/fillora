@@ -43,7 +43,21 @@ export class HeuristicDetector {
         } else {
           if (run >= minLineLen && run <= maxLineLen) {
             // Check if this is an underline for text input (height above line is mostly white/empty)
-            const boxH = Math.min(36, Math.floor(height * 0.035));
+            // Precise single-line height matching standard form fields (~18-22px)
+            let boxH = Math.min(24, Math.max(16, Math.floor(height * 0.019)));
+            // Scan upward to prevent box from encroaching on the label or text on the row above
+            for (let up = 6; up <= boxH; up += 2) {
+              const checkY = y - up;
+              if (checkY < 0) break;
+              let darkCount = 0;
+              for (let sx = startX; sx < startX + run; sx += 8) {
+                if (binary[checkY * width + sx] === 1) darkCount++;
+              }
+              if (darkCount > (run / 8) * 0.20) {
+                boxH = Math.max(14, up - 2);
+                break;
+              }
+            }
             const boxY = Math.max(0, y - boxH);
             
             // Check if region above is blank
@@ -57,10 +71,10 @@ export class HeuristicDetector {
             if (emptyRatio > 0.6) {
               candidateBoxes.push({
                 box: {
-                  x: Math.round((startX / width) * 1000) / 1000,
-                  y: Math.round((boxY / height) * 1000) / 1000,
-                  width: Math.round((run / width) * 1000) / 1000,
-                  height: Math.round((boxH / height) * 1000) / 1000,
+                  x: Math.round((startX / width) * 10000) / 10000,
+                  y: Math.round((boxY / height) * 10000) / 10000,
+                  width: Math.round((run / width) * 10000) / 10000,
+                  height: Math.round((boxH / height) * 10000) / 10000,
                 },
                 type: 'text',
                 confidence: 0.82,
@@ -76,10 +90,10 @@ export class HeuristicDetector {
     // Scan connected components / bounding boxes of rectangular contours
     const boxes = this.findRectangles(binary, width, height);
     for (const b of boxes) {
-      const normW = Math.round((b.w / width) * 1000) / 1000;
-      const normH = Math.round((b.h / height) * 1000) / 1000;
-      const normX = Math.round((b.x / width) * 1000) / 1000;
-      const normY = Math.round((b.y / height) * 1000) / 1000;
+      const normW = Math.round((b.w / width) * 10000) / 10000;
+      const normH = Math.round((b.h / height) * 10000) / 10000;
+      const normX = Math.round((b.x / width) * 10000) / 10000;
+      const normY = Math.round((b.y / height) * 10000) / 10000;
       const aspect = b.w / b.h;
 
       // Checkbox: aspect ~0.7 to 1.4, size between 10px and 35px

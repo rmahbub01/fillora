@@ -154,14 +154,18 @@ export const App: React.FC = () => {
       box: {
         x: normX,
         y: normY,
-        width: isCheckbox ? 0.03 : 0.35,
-        height: isCheckbox ? 0.025 : 0.035,
+        width: isCheckbox ? 0.022 : (type === 'textarea' ? 0.40 : 0.28),
+        height: isCheckbox ? 0.022 : (type === 'textarea' ? 0.08 : 0.024),
       },
       value: '',
       fontFamily: 'Kalpurush',
       fontSize: 12,
       autoFontSize: true,
       color: '#111827',
+      bold: false,
+      italic: false,
+      underline: false,
+      strikethrough: false,
       hAlign: 'left',
       vAlign: type === 'textarea' ? 'top' : 'middle',
       multiline: type === 'textarea',
@@ -187,6 +191,85 @@ export const App: React.FC = () => {
       return next;
     });
   }, [pushHistory]);
+
+  // Apply font size globally to overlay text boxes
+  // Already changed font size in text boxes will keep its current state (if keepCustom is true),
+  // and the remaining will be changed.
+  const handleApplyFontSizeGlobally = useCallback((fontSize: number, keepCustom: boolean = true) => {
+    setFields((prev) => {
+      const next = prev.map((f) => {
+        if (f.type === 'checkbox') return f;
+        if (f.id === selectedFieldId) {
+          return {
+            ...f,
+            fontSize,
+            autoFontSize: false,
+            customFontSize: true,
+          };
+        }
+        if (keepCustom && (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false))) {
+          return f; // Keep current state for already changed boxes
+        }
+        return {
+          ...f,
+          fontSize,
+          autoFontSize: false,
+          customFontSize: false,
+        };
+      });
+      pushHistory(next);
+      return next;
+    });
+  }, [selectedFieldId, pushHistory]);
+
+  // Revert font size globally to auto font size
+  // Already changed font size in text boxes will keep its current state (if keepCustom is true),
+  // and the remaining will be reverted to auto font size.
+  const handleRevertFontSizeGlobally = useCallback((keepCustom: boolean = true) => {
+    setFields((prev) => {
+      const next = prev.map((f) => {
+        if (f.type === 'checkbox') return f;
+        if (f.id === selectedFieldId) {
+          return {
+            ...f,
+            autoFontSize: true,
+            customFontSize: false,
+          };
+        }
+        if (keepCustom && (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false))) {
+          return f; // Keep current state for already changed boxes
+        }
+        return {
+          ...f,
+          autoFontSize: true,
+          customFontSize: false,
+        };
+      });
+      pushHistory(next);
+      return next;
+    });
+  }, [selectedFieldId, pushHistory]);
+
+  // Merged global typography action (Apply Font & Size to All)
+  const handleApplyTypographyGlobally = useCallback((fontFamily: string, fontSize: number, keepCustom: boolean = true) => {
+    setFields((prev) => {
+      const next = prev.map((f) => {
+        if (f.type === 'checkbox') return f;
+        const isSelected = f.id === selectedFieldId;
+        const isCustom = keepCustom && (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false));
+
+        return {
+          ...f,
+          fontFamily,
+          fontSize: isSelected ? fontSize : (isCustom ? f.fontSize : fontSize),
+          autoFontSize: isSelected ? false : (isCustom ? f.autoFontSize : false),
+          customFontSize: isSelected ? true : (isCustom ? f.customFontSize : false),
+        };
+      });
+      pushHistory(next);
+      return next;
+    });
+  }, [selectedFieldId, pushHistory]);
 
   // Toggle field lock
   const handleToggleLock = useCallback((id: string) => {
@@ -459,11 +542,15 @@ export const App: React.FC = () => {
         {/* Right Sidebar (Properties & Styling) */}
         <RightSidebar
           selectedField={selectedField}
+          allFields={fields}
           pageInfo={selectedField ? (pageInfos.find((p) => p.pageIndex === selectedField.pageIndex) || pageInfos[activePageIndex]) : pageInfos[activePageIndex]}
           onUpdateField={handleUpdateField}
           onDeleteField={handleDeleteField}
           onDuplicateField={handleDuplicateField}
           onApplyFontGlobally={handleApplyFontGlobally}
+          onApplyFontSizeGlobally={handleApplyFontSizeGlobally}
+          onRevertFontSizeGlobally={handleRevertFontSizeGlobally}
+          onApplyTypographyGlobally={handleApplyTypographyGlobally}
           allFonts={allFonts}
           onFontUploaded={(newFont) => setAllFonts((prev) => [...prev, newFont])}
         />

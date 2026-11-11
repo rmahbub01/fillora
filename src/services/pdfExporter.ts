@@ -118,13 +118,17 @@ export class PdfExporterService {
       ? `"${field.fontFamily}"`
       : field.fontFamily;
 
+    const fontStyle = field.italic ? 'italic ' : '';
+    const fontWeight = field.bold ? 'bold ' : '';
+    const fullFontSpec = `${fontStyle}${fontWeight}${fontSizePx}px ${fontFamily}, Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`;
+
     // Explicitly preload font at target size to ensure vector glyphs are used
     try {
       await Promise.all([
-        document.fonts.load(`${fontSizePx}px ${fontFamily}`),
-        document.fonts.load(`${fontSizePx}px "Kalpurush"`),
-        document.fonts.load(`${fontSizePx}px "Nikosh"`),
-        document.fonts.load(`${fontSizePx}px "Noto Sans Bengali"`),
+        document.fonts.load(`${fontStyle}${fontWeight}${fontSizePx}px ${fontFamily}`),
+        document.fonts.load(`${fontStyle}${fontWeight}${fontSizePx}px "Kalpurush"`),
+        document.fonts.load(`${fontStyle}${fontWeight}${fontSizePx}px "Nikosh"`),
+        document.fonts.load(`${fontStyle}${fontWeight}${fontSizePx}px "Noto Sans Bengali"`),
       ]);
     } catch {}
     await document.fonts.ready;
@@ -139,7 +143,7 @@ export class PdfExporterService {
         renderInfo: { drawXOffset: 0, drawYOffset: 0, totalWidthPts: widthPts, totalHeightPts: heightPts },
       };
     }
-    measureCtx.font = `${fontSizePx}px ${fontFamily}, Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`;
+    measureCtx.font = fullFontSpec;
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -275,7 +279,7 @@ export class PdfExporterService {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-      ctx.font = `${fontSizePx}px ${fontFamily}, Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`;
+      ctx.font = fullFontSpec;
       ctx.fillStyle = field.color || '#000000';
       ctx.textBaseline = 'top';
 
@@ -289,15 +293,15 @@ export class PdfExporterService {
         const lineY = boxTopPx + vOffsetPx + halfLeadingPx + i * lineHeightPx;
 
         let lineX = boxLeftPx + padXPx;
+        const lineWPx = ctx.measureText(line).width;
         if (field.hAlign === 'center') {
-          const w = ctx.measureText(line).width;
-          lineX = boxLeftPx + (boxWidthPx - w) / 2;
+          lineX = boxLeftPx + (boxWidthPx - lineWPx) / 2;
         } else if (field.hAlign === 'right') {
-          const w = ctx.measureText(line).width;
-          lineX = boxLeftPx + boxWidthPx - padXPx - w;
+          lineX = boxLeftPx + boxWidthPx - padXPx - lineWPx;
         }
 
         ctx.fillText(line, lineX, lineY);
+        this.drawDecorations(ctx, field, lineX, lineY, lineWPx, fontSizePx, scaleFactor, 'top');
       }
 
       const bytes = await this.canvasToUint8Array(canvas);
@@ -321,26 +325,17 @@ export class PdfExporterService {
       const padXPts = 4;
       const padXPx = padXPts * scaleFactor;
 
-      // Vertical overflow bleed (when font size is larger than box height)
-      const fontHeightPts = effectiveSizePts * 1.35;
-      let bleedTopPts = 0;
-      let bleedBottomPts = 0;
+      // When font size is too big, box height grows evenly in both sides (up and down)
+      // When font size is equal or smaller than normal, box height keeps its original state (heightPts)
+      const fontHeightPts = effectiveSizePts * (field.lineHeight ?? 1.35);
+      const actualHeightPts = Math.max(heightPts, Math.ceil(fontHeightPts));
+      const extraHeightPts = actualHeightPts - heightPts;
+      const halfExtraHeightPts = extraHeightPts / 2;
 
-      if (field.vAlign === 'middle') {
-        if (fontHeightPts > heightPts) {
-          const extraV = (fontHeightPts - heightPts) / 2 + 4;
-          bleedTopPts = Math.ceil(extraV);
-          bleedBottomPts = Math.ceil(extraV);
-        }
-      } else if (field.vAlign === 'top') {
-        if (fontHeightPts > heightPts) {
-          bleedBottomPts = Math.ceil(fontHeightPts - heightPts + 4);
-        }
-      } else if (field.vAlign === 'bottom') {
-        if (fontHeightPts > heightPts) {
-          bleedTopPts = Math.ceil(fontHeightPts - heightPts + 4);
-        }
-      }
+      const bleedTopExtraPts = Math.max(2, Math.ceil(effectiveSizePts * 0.25));
+      const bleedBottomExtraPts = Math.max(2, Math.ceil(effectiveSizePts * 0.15));
+      let bleedTopPts = Math.round(halfExtraHeightPts) + bleedTopExtraPts;
+      let bleedBottomPts = Math.round(halfExtraHeightPts) + bleedBottomExtraPts;
 
       // Horizontal overflow bleed (when text is wider than field box)
       let bleedLeftPts = 0;
@@ -365,7 +360,7 @@ export class PdfExporterService {
       }
 
       const canvasWidthPts = widthPts + bleedLeftPts + bleedRightPts;
-      const canvasHeightPts = heightPts + bleedTopPts + bleedBottomPts;
+      const canvasHeightPts = actualHeightPts + bleedTopExtraPts + bleedBottomExtraPts;
 
       canvas.width = Math.ceil(canvasWidthPts * scaleFactor);
       canvas.height = Math.ceil(canvasHeightPts * scaleFactor);
@@ -373,14 +368,14 @@ export class PdfExporterService {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-      ctx.font = `${fontSizePx}px ${fontFamily}, Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`;
+      ctx.font = fullFontSpec;
       ctx.fillStyle = field.color || '#000000';
 
       // Bounding box bounds inside the enlarged canvas
       const boxLeftPx = bleedLeftPts * scaleFactor;
-      const boxTopPx = bleedTopPts * scaleFactor;
+      const boxTopPx = bleedTopExtraPts * scaleFactor;
       const boxWidthPx = widthPts * scaleFactor;
-      const boxHeightPx = heightPts * scaleFactor;
+      const boxHeightPx = actualHeightPts * scaleFactor;
 
       // Horizontal positioning
       let textX = boxLeftPx + padXPx;
@@ -403,11 +398,12 @@ export class PdfExporterService {
       }
 
       ctx.fillText(text, textX, textY);
+      this.drawDecorations(ctx, field, textX, textY, textWidthPx, fontSizePx, scaleFactor, ctx.textBaseline);
 
       const bytes = await this.canvasToUint8Array(canvas);
       return {
         bytes,
-        actualHeightPts: heightPts,
+        actualHeightPts,
         renderInfo: {
           drawXOffset: bleedLeftPts,
           drawYOffset: bleedBottomPts,
@@ -416,6 +412,57 @@ export class PdfExporterService {
         },
       };
     }
+  }
+
+  /**
+   * Draw underline and strikethrough decorations for text
+   */
+  private drawDecorations(
+    ctx: CanvasRenderingContext2D,
+    field: FormField,
+    x: number,
+    y: number,
+    width: number,
+    fontSizePx: number,
+    scaleFactor: number,
+    baseline: CanvasTextBaseline
+  ): void {
+    if ((!field.underline && !field.strikethrough) || width <= 0) return;
+
+    ctx.save();
+    ctx.strokeStyle = field.color || '#000000';
+    ctx.lineWidth = Math.max(1.5 * scaleFactor, Math.round(fontSizePx * 0.07));
+
+    if (field.underline) {
+      let underlineY = y;
+      if (baseline === 'middle') {
+        underlineY = y + fontSizePx * 0.45;
+      } else if (baseline === 'top') {
+        underlineY = y + fontSizePx * 0.95;
+      } else if (baseline === 'bottom') {
+        underlineY = y + fontSizePx * 0.12;
+      }
+      ctx.beginPath();
+      ctx.moveTo(x, underlineY);
+      ctx.lineTo(x + width, underlineY);
+      ctx.stroke();
+    }
+
+    if (field.strikethrough) {
+      let strikeY = y;
+      if (baseline === 'middle') {
+        strikeY = y;
+      } else if (baseline === 'top') {
+        strikeY = y + fontSizePx * 0.50;
+      } else if (baseline === 'bottom') {
+        strikeY = y - fontSizePx * 0.35;
+      }
+      ctx.beginPath();
+      ctx.moveTo(x, strikeY);
+      ctx.lineTo(x + width, strikeY);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /**

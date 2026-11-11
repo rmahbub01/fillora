@@ -36,6 +36,11 @@ export interface FormField {
   fontFamily: string;
   fontSize: number;
   autoFontSize: boolean;
+  customFontSize?: boolean;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
   color: string;
   hAlign: HorizontalAlign;
   vAlign: VerticalAlign;

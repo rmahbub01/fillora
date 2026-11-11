@@ -102,10 +102,10 @@ export class AiDetectorService {
         const pixelW = det.width * targetSize;
         const pixelH = det.height * targetSize;
 
-        const pageNormX = Math.round(Math.max(0, Math.min(1, (pixelX - offsetX) / renderedW)) * 1000) / 1000;
-        const pageNormY = Math.round(Math.max(0, Math.min(1, (pixelY - offsetY) / renderedH)) * 1000) / 1000;
-        const pageNormW = Math.round(Math.max(0.01, Math.min(1 - pageNormX, pixelW / renderedW)) * 1000) / 1000;
-        const pageNormH = Math.round(Math.max(0.01, Math.min(1 - pageNormY, pixelH / renderedH)) * 1000) / 1000;
+        const pageNormX = Math.round(Math.max(0, Math.min(1, (pixelX - offsetX) / renderedW)) * 10000) / 10000;
+        const pageNormY = Math.round(Math.max(0, Math.min(1, (pixelY - offsetY) / renderedH)) * 10000) / 10000;
+        const pageNormW = Math.round(Math.max(0.005, Math.min(1 - pageNormX, pixelW / renderedW)) * 10000) / 10000;
+        const pageNormH = Math.round(Math.max(0.005, Math.min(1 - pageNormY, pixelH / renderedH)) * 10000) / 10000;
 
         const isCheckbox = det.className === 'ChoiceButton' || (det.width < 0.05 && det.height < 0.05);
         const isSignature = det.className === 'Signature';

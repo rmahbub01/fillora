@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ModelType, DetectionScope } from '../types/pdf';
+import { GithubIcon } from './GithubIcon';
 import {
   Upload,
   Sparkles,
@@ -265,8 +266,19 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
         </div>
       </div>
 
-      {/* Right: Privacy Badge & Export Flattened PDF */}
+      {/* Right: Privacy Badge, GitHub Link & Export Flattened PDF */}
       <div className="flex items-center space-x-2">
+        <a
+          href="https://github.com/rmahbub01/fillora"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Fillora on GitHub — Developed by Mahbub Rahman"
+          className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200/80 border border-gray-200/80 flex items-center space-x-1.5 transition"
+        >
+          <GithubIcon className="w-4 h-4 text-gray-700" />
+          <span className="hidden sm:inline">GitHub</span>
+        </a>
+
         <button
           onClick={onOpenPrivacyModal}
           className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 flex items-center space-x-1.5 transition"

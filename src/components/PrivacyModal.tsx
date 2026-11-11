@@ -1,5 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Lock, Cpu, EyeOff, HardDrive, X } from 'lucide-react';
+import { GithubIcon } from './GithubIcon';
 
 interface PrivacyModalProps {
   isOpen: boolean;
@@ -83,7 +84,28 @@ export const PrivacyModal: React.FC<PrivacyModalProps> = ({ isOpen, onClose }) =
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+        <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+          <div className="flex items-center space-x-2 text-xs text-gray-500">
+            <span>By</span>
+            <a
+              href="https://github.com/rmahbub01"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-gray-900 hover:text-indigo-600 underline"
+            >
+              Mahbub Rahman
+            </a>
+            <span>•</span>
+            <a
+              href="https://github.com/rmahbub01/fillora"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-1 text-gray-600 hover:text-indigo-600 font-medium hover:underline"
+            >
+              <GithubIcon className="w-3.5 h-3.5 text-gray-700" />
+              <span>GitHub</span>
+            </a>
+          </div>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-semibold shadow-xs transition"

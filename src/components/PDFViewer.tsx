@@ -2,7 +2,8 @@ import React, { useRef, useEffect, useState } from 'react';
 import { FormField, PageInfo } from '../types/pdf';
 import { pdfRenderer } from '../services/pdfRenderer';
 import { FieldOverlay } from './FieldOverlay';
-import { Plus, CheckSquare, Type, ZoomIn, ZoomOut, Maximize2, RotateCcw, Upload } from 'lucide-react';
+import { GithubIcon } from './GithubIcon';
+import { Plus, CheckSquare, Type, ZoomIn, ZoomOut, Maximize2, RotateCcw, Upload, ExternalLink } from 'lucide-react';
 
 interface PDFViewerProps {
   pageIndex: number;
@@ -132,6 +133,30 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
               <span className="w-2 h-2 rounded-full bg-purple-500" />
               <span>Bangla Unicode</span>
             </span>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-100 w-full flex items-center justify-between text-xs text-gray-500">
+            <span className="flex items-center space-x-1">
+              <span>Developed by</span>
+              <a
+                href="https://github.com/rmahbub01"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
+              >
+                Mahbub Rahman
+              </a>
+            </span>
+            <a
+              href="https://github.com/rmahbub01/fillora"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-1 text-gray-600 hover:text-gray-900 hover:underline transition"
+            >
+              <GithubIcon className="w-3.5 h-3.5 text-gray-700" />
+              <span>GitHub</span>
+              <ExternalLink className="w-3 h-3 text-gray-400" />
+            </a>
           </div>
         </div>
       </div>

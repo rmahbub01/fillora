@@ -72,7 +72,7 @@ Supports both official **CommonForms FFDNet** models running locally in a Web Wo
 
 ```bash
 # Clone the repository
-git clone https://github.com/mahbub/fillora.git
+git clone https://github.com/rmahbub01/fillora.git
 cd fillora
 
 # Install dependencies
@@ -113,6 +113,15 @@ node tests/core-functionality.test.mjs
 | `Shift + Tab` | Focus previous field on current page |
 | `Delete` / `Backspace` | Delete selected field |
 | `Escape` | Deselect active field |
+
+---
+
+## 👨‍💻 Developer
+
+**Fillora** is designed and developed by **[Mahbub Rahman](https://github.com/rmahbub01)**.
+
+- **GitHub Profile**: [@rmahbub01](https://github.com/rmahbub01)
+- **GitHub Repository**: [https://github.com/rmahbub01/fillora](https://github.com/rmahbub01/fillora)
 
 ---
 

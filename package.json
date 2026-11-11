@@ -1,15 +1,34 @@
 {
   "name": "fillora",
   "version": "1.0.0",
-  "description": "",
+  "description": "Privacy-First AI-Powered PDF Form Detection & Filling with Bangla Unicode Support",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "pdf",
+    "form-detection",
+    "form-filler",
+    "onnxruntime-web",
+    "bangla",
+    "ai",
+    "client-side"
+  ],
+  "author": {
+    "name": "Mahbub Rahman",
+    "url": "https://github.com/rmahbub01"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rmahbub01/fillora.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rmahbub01/fillora/issues"
+  },
+  "homepage": "https://github.com/rmahbub01/fillora#readme",
   "license": "ISC",
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FormField, PageInfo } from '../types/pdf';
 import { pdfRenderer } from '../services/pdfRenderer';
 import { Layers, FileText, CheckSquare, Lock, Unlock, Trash2, Eye, ChevronLeft, ChevronRight, Hash } from 'lucide-react';
+import { GithubIcon } from './GithubIcon';
 
 interface LeftSidebarProps {
   pageInfos: PageInfo[];
@@ -93,6 +94,17 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             <span className="absolute top-1 right-1 w-2 h-2 bg-indigo-600 rounded-full" />
           )}
         </button>
+        <div className="mt-auto pb-2">
+          <a
+            href="https://github.com/rmahbub01/fillora"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Fillora on GitHub — Developed by Mahbub Rahman"
+            className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition flex items-center justify-center"
+          >
+            <GithubIcon className="w-4 h-4" />
+          </a>
+        </div>
       </div>
     );
   }
@@ -279,6 +291,29 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
           )}
         </div>
       )}
+
+      {/* Sidebar Footer: GitHub Repo & Developer */}
+      <div className="p-2.5 border-t border-gray-200 bg-gray-50/70 text-[11px] text-gray-500 flex items-center justify-between">
+        <a
+          href="https://github.com/rmahbub01/fillora"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center space-x-1.5 text-gray-600 hover:text-indigo-600 transition font-medium truncate"
+          title="Fillora GitHub Repository"
+        >
+          <GithubIcon className="w-3.5 h-3.5 shrink-0 text-gray-700" />
+          <span className="truncate">rmahbub01/fillora</span>
+        </a>
+        <a
+          href="https://github.com/rmahbub01"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-500 hover:text-indigo-600 font-medium transition truncate ml-2"
+          title="Developer: Mahbub Rahman"
+        >
+          by Mahbub Rahman
+        </a>
+      </div>
     </div>
   );
 };

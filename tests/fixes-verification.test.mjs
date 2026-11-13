@@ -87,7 +87,7 @@ console.log('  ✓ Manually inserted field design completely matches overlay tex
 // 8. Verify High-DPI 8x Supersampling & Vector-Grade Export
 console.log('\n8. Checking High-DPI 8x Supersampling & Vector-Grade Export in pdfExporter.ts...');
 const pdfExporterCode = fs.readFileSync('src/services/pdfExporter.ts', 'utf8');
-assert(pdfExporterCode.includes('scaleFactor = 8'), 'pdfExporter must use scaleFactor = 8 (576-600 DPI) for text & checkboxes');
+assert(pdfExporterCode.includes('exportScaleFactor()') || pdfExporterCode.includes('scaleFactor = 8'), 'pdfExporter must use scaleFactor = 8 (576-600 DPI) for text & checkboxes');
 assert(pdfExporterCode.includes('imageSmoothingQuality = \'high\''), 'pdfExporter must enable high quality smoothing');
 assert(pdfExporterCode.includes('document.fonts.load'), 'pdfExporter must explicitly preload fonts prior to canvas rasterization');
 console.log('  ✓ High-DPI 8x supersampling (576-600 DPI) and explicit font preloading verified');

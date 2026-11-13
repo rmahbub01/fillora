@@ -13,6 +13,8 @@ interface LeftSidebarProps {
   onToggleLock: (id: string) => void;
   onDeleteField: (id: string) => void;
   onClearPageFields: (pageIndex: number) => void;
+  /** Render full-width inside a mobile sheet (no collapse, grid thumbnails). */
+  embedded?: boolean;
 }
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({
@@ -25,6 +27,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   onToggleLock,
   onDeleteField,
   onClearPageFields,
+  embedded = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'pages' | 'fields'>('pages');
   const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
@@ -60,7 +63,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
   const currentPageFields = fields.filter((f) => f.pageIndex === activePageIndex);
 
-  if (isCollapsed) {
+  if (isCollapsed && !embedded) {
     return (
       <div className="w-12 bg-white border-r border-gray-200 flex flex-col items-center py-4 space-y-4 z-20">
         <button
@@ -98,7 +101,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   }
 
   return (
-    <div className="w-72 bg-white border-r border-gray-200 flex flex-col h-full z-20 select-none shadow-sm">
+    <div className={`${embedded ? 'w-full' : 'w-72 border-r border-gray-200 shadow-sm'} bg-white flex flex-col h-full z-20 select-none`}>
       {/* Sidebar Header & Tabs */}
       <div className="p-3 border-b border-gray-200 flex items-center justify-between">
         <div className="flex bg-gray-100 p-1 rounded-lg space-x-1 flex-1 mr-2">
@@ -125,18 +128,20 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             <span>Fields ({fields.length})</span>
           </button>
         </div>
-        <button
-          onClick={() => setIsCollapsed(true)}
-          title="Collapse Sidebar"
-          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
+        {!embedded && (
+          <button
+            onClick={() => setIsCollapsed(true)}
+            title="Collapse Sidebar"
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Pages Tab Content */}
       {activeTab === 'pages' && (
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className={`flex-1 overflow-y-auto p-4 ${embedded ? 'grid grid-cols-2 gap-3 content-start' : 'space-y-4'}`}>
           {pageInfos.map((info) => {
             const pageFieldCount = fields.filter((f) => f.pageIndex === info.pageIndex).length;
             const isCurrent = info.pageIndex === activePageIndex;
@@ -219,7 +224,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                   <div
                     key={field.id}
                     onClick={() => onSelectField(field.id)}
-                    className={`group p-2 rounded-lg border text-xs transition flex items-center justify-between cursor-pointer ${
+                    className={`group ${embedded ? 'p-3' : 'p-2'} rounded-lg border text-xs transition flex items-center justify-between cursor-pointer ${
                       isSelected
                         ? 'border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-400'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 bg-white'
@@ -256,7 +261,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                           onToggleLock(field.id);
                         }}
                         title={field.locked ? 'Locked' : 'Unlocked'}
-                        className={`p-1 rounded hover:bg-gray-200 transition ${field.locked ? 'text-gray-400' : 'text-amber-500'}`}
+                        className={`${embedded ? 'p-2' : 'p-1'} rounded hover:bg-gray-200 transition ${field.locked ? 'text-gray-400' : 'text-amber-500'}`}
                       >
                         {field.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                       </button>
@@ -267,7 +272,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                           onDeleteField(field.id);
                         }}
                         title="Delete Field"
-                        className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                        className={`${embedded ? 'p-2' : 'p-1'} rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

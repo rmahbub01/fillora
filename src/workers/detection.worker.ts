@@ -3,7 +3,11 @@ import * as ort from 'onnxruntime-web';
 // Configure ONNX Runtime Web WASM paths (loads from high-speed CDN to avoid Cloudflare 25MB asset limit)
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.31.1/dist/';
 // Keep CPU threads moderate (max 2) to prevent 100% CPU core pinning and loud cooling fans during WASM fallback
-ort.env.wasm.numThreads = Math.min(2, Math.max(1, Math.floor((navigator.hardwareConcurrency || 2) / 2)));
+const isCoarse = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+// SharedArrayBuffer (multi-thread WASM) needs cross-origin isolation; phones also run hot, so use 1 thread there.
+ort.env.wasm.numThreads = (isCoarse || !(self as any).crossOriginIsolated)
+  ? 1
+  : Math.min(2, Math.max(1, Math.floor((navigator.hardwareConcurrency || 2) / 2)));
 
 interface DetectionMessage {
   type: 'detect';

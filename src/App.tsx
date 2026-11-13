@@ -10,6 +10,12 @@ import { RightSidebar } from './components/RightSidebar';
 import { PDFViewer } from './components/PDFViewer';
 import { PrivacyModal } from './components/PrivacyModal';
 import { DetectionModal } from './components/DetectionModal';
+import { MobileTopBar } from './components/MobileTopBar';
+import { MobileBottomBar } from './components/MobileBottomBar';
+import { MobileSheet } from './components/MobileSheet';
+import { MobileDetectPanel } from './components/MobileDetectPanel';
+import { useIsMobile } from './hooks/useIsMobile';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
@@ -29,6 +35,11 @@ export const App: React.FC = () => {
   // Fonts & Modals
   const [allFonts, setAllFonts] = useState<FontOption[]>(fontManager.getAllFonts());
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
+
+  // Mobile layout state
+  const isMobile = useIsMobile();
+  const [sheet, setSheet] = useState<'pages' | 'detect' | 'style' | null>(null);
+  const [fitSignal, setFitSignal] = useState<number>(0);
 
   // Undo / Redo History Stack
   const [history, setHistory] = useState<FormField[][]>([]);
@@ -76,6 +87,8 @@ export const App: React.FC = () => {
       setPdfData(exportCopy);
       setPageInfos(pages);
       setActivePageIndex(0);
+      setFitSignal((n) => n + 1);
+      setSheet(null);
       setSelectedFieldId(null);
 
       // Auto-extract any native AcroForms present
@@ -392,16 +405,31 @@ export const App: React.FC = () => {
         activePageIndex
       );
 
-      // Create download trigger
       const blob = new Blob([flattenedBytes as BlobPart], { type: 'application/pdf' });
+      const fileName = `Fillora_Flattened_Form_${Date.now()}.pdf`;
+
+      // Phones: open the native share sheet (Save to Files/Drive, WhatsApp, email...). Falls back to download.
+      if (isMobile && typeof navigator.share === 'function' && typeof File !== 'undefined') {
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        if (navigator.canShare?.({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file], title: fileName });
+            return;
+          } catch (shareErr: any) {
+            if (shareErr?.name === 'AbortError') return; // user closed the sheet
+            // otherwise fall through to normal download
+          }
+        }
+      }
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Fillora_Flattened_Form_${Date.now()}.pdf`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (err) {
       alert(`Export error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -483,14 +511,154 @@ export const App: React.FC = () => {
   };
 
   const selectedField = fields.find((f) => f.id === selectedFieldId) || null;
+  const hasDocument = pageInfos.length > 0;
 
+  const rightSidebarProps = {
+    selectedField,
+    allFields: fields,
+    pageInfo: selectedField
+      ? (pageInfos.find((p) => p.pageIndex === selectedField.pageIndex) || pageInfos[activePageIndex])
+      : pageInfos[activePageIndex],
+    onUpdateField: handleUpdateField,
+    onDeleteField: handleDeleteField,
+    onDuplicateField: handleDuplicateField,
+    onApplyFontGlobally: handleApplyFontGlobally,
+    onApplyFontSizeGlobally: handleApplyFontSizeGlobally,
+    onRevertFontSizeGlobally: handleRevertFontSizeGlobally,
+    onApplyTypographyGlobally: handleApplyTypographyGlobally,
+    allFonts,
+    onFontUploaded: (newFont: FontOption) => setAllFonts((prev) => [...prev, newFont]),
+  };
+
+  const viewerProps = {
+    pageIndex: activePageIndex,
+    pageInfo: pageInfos[activePageIndex],
+    fields,
+    selectedFieldId,
+    onSelectField: setSelectedFieldId,
+    onUpdateField: handleUpdateField,
+    onDeleteField: handleDeleteField,
+    onAddField: handleAddManualField,
+    zoomScale,
+    onZoomChange: setZoomScale,
+    onOpenFile: handleOpenFile,
+    isMobile,
+    fitSignal,
+  };
+
+  const detectionOverlays = (
+    <>
+      <PrivacyModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
+      <DetectionModal
+        progress={detectionProgress}
+        onCancel={() => {
+          aiDetector.terminate();
+          setIsDetecting(false);
+          setDetectionProgress(null);
+        }}
+      />
+    </>
+  );
+
+  // ------------------------------------------------------------------ MOBILE
+  if (isMobile) {
+    return (
+      <div
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        className="flex flex-col h-app w-full overflow-hidden bg-gray-100 font-sans text-gray-900"
+      >
+        <MobileTopBar
+          hasDocument={hasDocument}
+          onOpenFile={handleOpenFile}
+          canUndo={historyIndex > 0}
+          canRedo={historyIndex < history.length - 1}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onExportPdf={handleExportPdf}
+          isExporting={isExporting}
+          onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
+        />
+
+        <div className="flex-1 flex overflow-hidden relative min-h-0">
+          <PDFViewer {...viewerProps} />
+
+          {pageInfos.length > 1 && (
+            <div className="absolute left-3 bottom-3 z-30 bg-white/95 backdrop-blur rounded-full shadow-md border border-gray-200 flex items-center text-xs font-semibold text-gray-700 select-none">
+              <button
+                aria-label="Previous page"
+                disabled={activePageIndex === 0}
+                onClick={() => setActivePageIndex((i) => Math.max(0, i - 1))}
+                className="p-2 disabled:opacity-30"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-1 tabular-nums">{activePageIndex + 1} / {pageInfos.length}</span>
+              <button
+                aria-label="Next page"
+                disabled={activePageIndex === pageInfos.length - 1}
+                onClick={() => setActivePageIndex((i) => Math.min(pageInfos.length - 1, i + 1))}
+                className="p-2 disabled:opacity-30"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <MobileBottomBar
+          disabled={!hasDocument}
+          isDetecting={isDetecting}
+          hasSelection={!!selectedField}
+          fieldCount={fields.length}
+          onOpenPages={() => setSheet('pages')}
+          onOpenDetect={() => setSheet('detect')}
+          onOpenStyle={() => setSheet('style')}
+          onAddField={(type) => handleAddManualField(type)}
+        />
+
+        <MobileSheet open={sheet === 'pages'} title="Pages & fields" onClose={() => setSheet(null)}>
+          <LeftSidebar
+            embedded
+            pageInfos={pageInfos}
+            activePageIndex={activePageIndex}
+            onPageSelect={(i) => { setActivePageIndex(i); setSheet(null); }}
+            fields={fields}
+            selectedFieldId={selectedFieldId}
+            onSelectField={(id) => { setSelectedFieldId(id); setSheet(null); }}
+            onToggleLock={handleToggleLock}
+            onDeleteField={handleDeleteField}
+            onClearPageFields={handleClearPageFields}
+          />
+        </MobileSheet>
+
+        <MobileSheet open={sheet === 'detect'} title="Detect form fields" size="auto" onClose={() => setSheet(null)}>
+          <MobileDetectPanel
+            selectedModel={selectedModel}
+            onSelectModel={setSelectedModel}
+            scope={detectionScope}
+            onSelectScope={setDetectionScope}
+            pageCount={pageInfos.length}
+            onRun={() => { setSheet(null); handleDetectFields(); }}
+          />
+        </MobileSheet>
+
+        <MobileSheet open={sheet === 'style'} title="Field style" onClose={() => setSheet(null)}>
+          <RightSidebar embedded {...rightSidebarProps} />
+        </MobileSheet>
+
+        {detectionOverlays}
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------------------- DESKTOP
   return (
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100 font-sans text-gray-900"
+      className="flex flex-col h-app w-screen overflow-hidden bg-gray-100 font-sans text-gray-900"
     >
-      {/* Top Navbar */}
       <TopNavbar
         onOpenFile={handleOpenFile}
         canUndo={historyIndex > 0}
@@ -509,9 +677,7 @@ export const App: React.FC = () => {
         onOpenPrivacyModal={() => setIsPrivacyModalOpen(true)}
       />
 
-      {/* Main Workspace Body */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Sidebar (Thumbnails & Fields) */}
         <LeftSidebar
           pageInfos={pageInfos}
           activePageIndex={activePageIndex}
@@ -523,54 +689,11 @@ export const App: React.FC = () => {
           onDeleteField={handleDeleteField}
           onClearPageFields={handleClearPageFields}
         />
-
-        {/* Center Interactive PDF Canvas */}
-        <PDFViewer
-          pageIndex={activePageIndex}
-          pageInfo={pageInfos[activePageIndex]}
-          fields={fields}
-          selectedFieldId={selectedFieldId}
-          onSelectField={setSelectedFieldId}
-          onUpdateField={handleUpdateField}
-          onDeleteField={handleDeleteField}
-          onAddField={handleAddManualField}
-          zoomScale={zoomScale}
-          onZoomChange={setZoomScale}
-          onOpenFile={handleOpenFile}
-        />
-
-        {/* Right Sidebar (Properties & Styling) */}
-        <RightSidebar
-          selectedField={selectedField}
-          allFields={fields}
-          pageInfo={selectedField ? (pageInfos.find((p) => p.pageIndex === selectedField.pageIndex) || pageInfos[activePageIndex]) : pageInfos[activePageIndex]}
-          onUpdateField={handleUpdateField}
-          onDeleteField={handleDeleteField}
-          onDuplicateField={handleDuplicateField}
-          onApplyFontGlobally={handleApplyFontGlobally}
-          onApplyFontSizeGlobally={handleApplyFontSizeGlobally}
-          onRevertFontSizeGlobally={handleRevertFontSizeGlobally}
-          onApplyTypographyGlobally={handleApplyTypographyGlobally}
-          allFonts={allFonts}
-          onFontUploaded={(newFont) => setAllFonts((prev) => [...prev, newFont])}
-        />
+        <PDFViewer {...viewerProps} />
+        <RightSidebar {...rightSidebarProps} />
       </div>
 
-      {/* Privacy Guarantee Modal */}
-      <PrivacyModal
-        isOpen={isPrivacyModalOpen}
-        onClose={() => setIsPrivacyModalOpen(false)}
-      />
-
-      {/* Detection Progress Dialog */}
-      <DetectionModal
-        progress={detectionProgress}
-        onCancel={() => {
-          aiDetector.terminate();
-          setIsDetecting(false);
-          setDetectionProgress(null);
-        }}
-      />
+      {detectionOverlays}
     </div>
   );
 };

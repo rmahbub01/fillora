@@ -45,6 +45,8 @@ interface RightSidebarProps {
   onApplyTypographyGlobally?: (fontFamily: string, fontSize: number, keepCustom?: boolean) => void;
   allFonts: FontOption[];
   onFontUploaded: (font: FontOption) => void;
+  /** Render full-width inside a mobile sheet. */
+  embedded?: boolean;
 }
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -60,6 +62,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onApplyTypographyGlobally,
   allFonts,
   onFontUploaded,
+  embedded = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [keepCustomSizes, setKeepCustomSizes] = useState<boolean>(true);
@@ -124,7 +127,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
 
   if (!selectedField) {
     return (
-      <div className="w-80 bg-white border-l border-gray-200 p-6 flex flex-col items-center justify-center text-center select-none z-20">
+      <div className={`${embedded ? 'w-full h-full' : 'w-80 border-l border-gray-200'} bg-white p-6 flex flex-col items-center justify-center text-center select-none z-20`}>
         <Sliders className="w-10 h-10 text-gray-300 mb-3 stroke-1" />
         <h3 className="text-sm font-semibold text-gray-700">Properties & Styling</h3>
         <p className="text-xs text-gray-400 mt-1 max-w-[200px]">
@@ -158,7 +161,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   const isCheckbox = selectedField.type === 'checkbox';
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full z-20 select-none overflow-y-auto">
+    <div className={`${embedded ? 'w-full' : 'w-80 border-l border-gray-200'} bg-white flex flex-col h-full z-20 select-none overflow-y-auto`}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <div>

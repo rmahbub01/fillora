@@ -17,6 +17,9 @@ interface PDFViewerProps {
   zoomScale: number;
   onZoomChange: (newScale: number) => void;
   onOpenFile?: (file: File) => void;
+  isMobile?: boolean;
+  /** Changes whenever a new PDF is opened; triggers fit-to-width on mobile. */
+  fitSignal?: number;
 }
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({
@@ -31,10 +34,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   zoomScale,
   onZoomChange,
   onOpenFile,
+  isMobile = false,
+  fitSignal = 0,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isRendering, setIsRendering] = useState(false);
+  const pageWrapRef = useRef<HTMLDivElement>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ startDist: number; scale: number } | null>(null);
+  const zoomRef = useRef(zoomScale);
+  zoomRef.current = zoomScale;
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pageX: number; pageY: number } | null>(null);
 
   // Filter fields belonging to current active page
@@ -67,6 +77,50 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     };
   }, [pageIndex, zoomScale, pageInfo]);
 
+  // Mobile: fit page width to the screen when a document (or a different page size) loads
+  useEffect(() => {
+    if (!isMobile || !pageInfo || !containerRef.current) return;
+    const avail = containerRef.current.clientWidth - 16;
+    if (avail > 0) {
+      onZoomChange(Math.max(0.3, Math.min(2.5, avail / pageInfo.width)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, fitSignal, pageInfo?.width]);
+
+  // Two-finger pinch zoom: transform the wrapper while pinching (cheap),
+  // then commit the real zoom once on release so the canvas re-renders only once.
+  const handlePointerDownC = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = { startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1, scale: 1 };
+    }
+  };
+  const handlePointerMoveC = (e: React.PointerEvent) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinchRef.current && pointersRef.current.size === 2 && pageWrapRef.current) {
+      const [a, b] = [...pointersRef.current.values()];
+      const ratio = Math.hypot(a.x - b.x, a.y - b.y) / pinchRef.current.startDist;
+      const target = Math.max(0.5, Math.min(2.5, zoomRef.current * ratio));
+      pinchRef.current.scale = target / zoomRef.current;
+      pageWrapRef.current.style.transformOrigin = 'top center';
+      pageWrapRef.current.style.transform = `scale(${pinchRef.current.scale})`;
+    }
+  };
+  const endPointerC = (e: React.PointerEvent) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pinchRef.current && pointersRef.current.size < 2) {
+      const factor = pinchRef.current.scale;
+      pinchRef.current = null;
+      if (pageWrapRef.current) pageWrapRef.current.style.transform = '';
+      if (Math.abs(factor - 1) > 0.02) {
+        onZoomChange(Math.max(0.5, Math.min(2.5, zoomRef.current * factor)));
+      }
+    }
+  };
+
   const handleContainerClick = (e: React.MouseEvent) => {
     if (e.target === containerRef.current || (e.target as HTMLElement).tagName === 'CANVAS') {
       onSelectField(null);
@@ -92,7 +146,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
   if (!pageInfo) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-100/90 select-none">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-gray-100/90 select-none overflow-y-auto">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-gray-200/80 p-8 text-center flex flex-col items-center">
           <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 shadow-xs">
             <Upload className="w-8 h-8" />
@@ -172,11 +226,17 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         ref={containerRef}
         onClick={handleContainerClick}
         onContextMenu={handleCanvasContextMenu}
-        className="flex-1 relative overflow-auto bg-gray-100/90 flex justify-center p-8 select-none"
+        onPointerDown={handlePointerDownC}
+        onPointerMove={handlePointerMoveC}
+        onPointerUp={endPointerC}
+        onPointerCancel={endPointerC}
+        style={{ touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' }}
+        className={`flex-1 relative overflow-auto bg-gray-100/90 flex ${isMobile ? 'justify-start p-2 pb-24' : 'justify-center p-8'} select-none`}
       >
         {/* PDF Page Wrapper */}
         <div
-          className="relative bg-white shadow-xl transition-all duration-100"
+          ref={pageWrapRef}
+          className={`relative bg-white shadow-xl shrink-0 ${isMobile ? 'mx-auto' : 'transition-all duration-100'}`}
           style={{
             width: `${pageWidth * zoomScale}px`,
             height: `${pageHeight * zoomScale}px`,
@@ -219,7 +279,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         {contextMenu && (
           <div
             className="fixed bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 z-50 min-w-[170px] text-xs text-gray-700"
-            style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+            style={{
+              left: `${Math.min(contextMenu.x, window.innerWidth - 190)}px`,
+              top: `${Math.min(contextMenu.y, window.innerHeight - 190)}px`,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-3 py-1 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">
@@ -230,7 +293,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onAddField('text', contextMenu.pageX, contextMenu.pageY);
                 setContextMenu(null);
               }}
-              className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 flex items-center space-x-2 transition"
+              className="w-full text-left px-3 py-2.5 md:py-1.5 hover:bg-indigo-50 hover:text-indigo-600 flex items-center space-x-2 transition"
             >
               <Type className="w-3.5 h-3.5 text-indigo-500" />
               <span>Add Text Box</span>
@@ -240,7 +303,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onAddField('textarea', contextMenu.pageX, contextMenu.pageY);
                 setContextMenu(null);
               }}
-              className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 flex items-center space-x-2 transition"
+              className="w-full text-left px-3 py-2.5 md:py-1.5 hover:bg-indigo-50 hover:text-indigo-600 flex items-center space-x-2 transition"
             >
               <Type className="w-3.5 h-3.5 text-indigo-500" />
               <span>Add Multiline Area</span>
@@ -250,7 +313,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                 onAddField('checkbox', contextMenu.pageX, contextMenu.pageY);
                 setContextMenu(null);
               }}
-              className="w-full text-left px-3 py-1.5 hover:bg-indigo-50 hover:text-indigo-600 flex items-center space-x-2 transition"
+              className="w-full text-left px-3 py-2.5 md:py-1.5 hover:bg-indigo-50 hover:text-indigo-600 flex items-center space-x-2 transition"
             >
               <CheckSquare className="w-3.5 h-3.5 text-emerald-500" />
               <span>Add Checkbox</span>
@@ -260,11 +323,13 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       </div>
 
       {/* Vertical Zoom Toolbar: attached to the left edge of the Right Sidebar */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-l-xl shadow-md border-y border-l border-gray-200/90 py-2 px-1.5 flex flex-col items-center space-y-2 z-30 pointer-events-auto select-none">
+      <div className={isMobile
+        ? "absolute right-3 bottom-3 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-gray-200/90 py-1 px-2 flex items-center space-x-1 z-30 pointer-events-auto select-none"
+        : "absolute right-0 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-l-xl shadow-md border-y border-l border-gray-200/90 py-2 px-1.5 flex flex-col items-center space-y-2 z-30 pointer-events-auto select-none"}>
         <button
           onClick={() => onZoomChange(Math.min(2.5, zoomScale + 0.15))}
           title="Zoom In"
-          className="p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
+          className="p-2 md:p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
@@ -276,19 +341,25 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         <button
           onClick={() => onZoomChange(Math.max(0.5, zoomScale - 0.15))}
           title="Zoom Out"
-          className="p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
+          className="p-2 md:p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
 
-        <div className="w-4 h-[1px] bg-gray-200" />
+        <div className={isMobile ? "h-4 w-[1px] bg-gray-200" : "w-4 h-[1px] bg-gray-200"} />
 
         <button
-          onClick={() => onZoomChange(1.0)}
-          title="Reset Zoom to 100%"
-          className="p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
+          onClick={() => {
+            if (isMobile && containerRef.current && pageInfo) {
+              onZoomChange(Math.max(0.3, Math.min(2.5, (containerRef.current.clientWidth - 16) / pageInfo.width)));
+            } else {
+              onZoomChange(1.0);
+            }
+          }}
+          title={isMobile ? "Fit to width" : "Reset Zoom to 100%"}
+          className="p-2 md:p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
+          {isMobile ? <Maximize2 className="w-4 h-4" /> : <RotateCcw className="w-3.5 h-3.5" />}
         </button>
       </div>
     </div>

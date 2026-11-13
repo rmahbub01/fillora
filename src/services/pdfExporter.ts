@@ -1,5 +1,6 @@
 import { FormField, PageInfo } from '../types/pdf';
 import { getEffectiveFontSizePts } from '../utils/typography';
+import { exportScaleFactor } from '../utils/device';
 
 export class PdfExporterService {
   /**
@@ -111,7 +112,7 @@ export class PdfExporterService {
       totalHeightPts: number;
     };
   }> {
-    const scaleFactor = 8; // 8x supersampling for 576-600 DPI razor-sharp print quality
+    const scaleFactor = exportScaleFactor(); // 8x desktop (~576 DPI), 4x mobile (~288 DPI) to avoid OOM
     const effectiveSizePts = getEffectiveFontSizePts(field, widthPts, heightPts);
     const fontSizePx = effectiveSizePts * scaleFactor;
     const fontFamily = field.fontFamily.includes(' ') && !field.fontFamily.includes('"')
@@ -473,7 +474,7 @@ export class PdfExporterService {
     widthPts: number,
     heightPts: number
   ): Promise<Uint8Array | null> {
-    const scaleFactor = 8;
+    const scaleFactor = exportScaleFactor();
     const canvas = document.createElement('canvas');
     canvas.width = Math.ceil(widthPts * scaleFactor);
     canvas.height = Math.ceil(heightPts * scaleFactor);

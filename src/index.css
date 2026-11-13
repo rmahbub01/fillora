@@ -66,3 +66,30 @@
 .animate-fadeIn {
   animation: fadeIn 0.15s ease-out forwards;
 }
+
+/* ---------- Mobile / touch ---------- */
+html, body, #root { height: 100%; }
+body {
+  overscroll-behavior: none;            /* no pull-to-refresh while dragging fields */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+.h-app { height: 100vh; height: 100dvh; } /* dynamic viewport: respects mobile URL bar */
+
+/* Bigger, invisible touch targets for resize handles (visual size unchanged) */
+.resize-handle { touch-action: none; }
+.resize-handle::after { content: ''; position: absolute; inset: -6px; }
+@media (pointer: coarse) {
+  .resize-handle { width: 14px !important; height: 14px !important; }
+  .resize-handle::after { inset: -14px; }
+}
+
+.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+@keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.animate-sheetUp { animation: sheetUp .2s ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeIn, .animate-sheetUp { animation: none; }
+}

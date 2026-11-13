@@ -1,5 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { FormField, PageInfo } from '../types/pdf';
+import { maxCanvasPixels, isMobileDevice } from '../utils/device';
 
 let pdfjsLibPromise: Promise<typeof import('pdfjs-dist')> | null = null;
 
@@ -19,6 +20,8 @@ export class PdfRendererService {
   private pdfDoc: PDFDocumentProxy | null = null;
   private pdfData: ArrayBuffer | null = null;
   private pageInfos: PageInfo[] = [];
+  // One in-flight render per canvas; a new render (zoom/fit/page change) cancels the previous one
+  private renderTasks = new WeakMap<HTMLCanvasElement, { cancel: () => void; promise: Promise<unknown> }>();
 
   public async loadPdf(data: ArrayBuffer): Promise<PageInfo[]> {
     this.close();
@@ -75,9 +78,20 @@ export class PdfRendererService {
   ): Promise<void> {
     if (!this.pdfDoc) return;
     const page = await this.pdfDoc.getPage(pageIndex + 1);
-    
+
+    const prev = this.renderTasks.get(canvas);
+    if (prev) {
+      prev.cancel();
+      await prev.promise.catch(() => undefined);
+    }
+
     // HiDPI support
-    const dpr = window.devicePixelRatio || 1;
+    let dpr = Math.min(window.devicePixelRatio || 1, isMobileDevice() ? 2 : 3);
+    const base = page.getViewport({ scale });
+    // Keep the backing canvas under the device's pixel budget (prevents blank canvases / OOM on phones)
+    const budget = maxCanvasPixels();
+    const wanted = base.width * base.height * dpr * dpr;
+    if (wanted > budget) dpr = Math.max(1, Math.sqrt(budget / (base.width * base.height)));
     const viewport = page.getViewport({ scale: scale * dpr });
     
     canvas.width = Math.floor(viewport.width);
@@ -88,12 +102,20 @@ export class PdfRendererService {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    await page.render({
+    const task = page.render({
       canvas,
       canvasContext: ctx,
       viewport: viewport,
       intent: 'display',
-    }).promise;
+    });
+    this.renderTasks.set(canvas, task);
+    try {
+      await task.promise;
+    } catch (err: any) {
+      if (err?.name !== 'RenderingCancelledException') throw err; // cancelled by a newer render: expected
+    } finally {
+      if (this.renderTasks.get(canvas) === task) this.renderTasks.delete(canvas);
+    }
   }
 
   public async renderThumbnail(pageIndex: number, width: number = 160): Promise<string> {

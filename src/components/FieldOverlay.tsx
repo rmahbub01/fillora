@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { FormField, CheckboxState } from '../types/pdf';
 import { getEffectiveFontSizePts } from '../utils/typography';
+import { isMobileDevice } from '../utils/device';
 import { Lock, Unlock, Trash2, Check, X, Circle, GripHorizontal } from 'lucide-react';
 
 interface FieldOverlayProps {
@@ -63,7 +64,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   }, [field.value, field.multiline, field.vAlign, field.lineHeight, pixelHeight, computedFontSize, scale]);
 
 
-  const handleMouseDownMove = (e: React.MouseEvent) => {
+  const handleMouseDownMove = (e: React.PointerEvent) => {
     if (field.locked) return;
     e.stopPropagation();
     onSelect(field.id);
@@ -79,7 +80,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     });
   };
 
-  const handleMouseDownResize = (direction: string, e: React.MouseEvent) => {
+  const handleMouseDownResize = (direction: string, e: React.PointerEvent) => {
     if (field.locked) return;
     e.stopPropagation();
     onSelect(field.id);
@@ -119,10 +120,10 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   useEffect(() => {
     if (!isDragging && !isResizing) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: PointerEvent) => {
       const deltaX = (e.clientX - dragStart.mouseX) / (pageWidth * scale);
       const deltaY = (e.clientY - dragStart.mouseY) / (pageHeight * scale);
-      dragDistRef.current += Math.hypot(e.movementX, e.movementY);
+      dragDistRef.current = Math.max(dragDistRef.current, Math.hypot(e.clientX - dragStart.mouseX, e.clientY - dragStart.mouseY));
 
       if (isDragging) {
         const newX = Math.max(0, Math.min(1 - dragStart.boxW, dragStart.boxX + deltaX));
@@ -182,11 +183,13 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       setIsResizing(null);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handleMouseMove);
+    window.addEventListener('pointerup', handleMouseUp);
+    window.addEventListener('pointercancel', handleMouseUp);
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handleMouseMove);
+      window.removeEventListener('pointerup', handleMouseUp);
+      window.removeEventListener('pointercancel', handleMouseUp);
     };
   }, [isDragging, isResizing, dragStart, field, onChange, pageWidth, pageHeight, scale]);
 
@@ -196,12 +199,12 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       <div
         ref={containerRef}
         onClick={handleCheckboxClick}
-        onMouseDown={handleMouseDownMove}
+        onPointerDown={handleMouseDownMove}
         className={`absolute group select-none transition-all flex items-center justify-center ${
           isSelected
             ? 'ring-2 ring-indigo-500 ring-inset shadow-md bg-indigo-50/50 z-30'
             : 'hover:ring-1 hover:ring-indigo-400 hover:ring-inset hover:bg-indigo-50/25 z-10'
-        } ${field.locked ? 'cursor-pointer' : 'cursor-move border-2 border-dashed border-indigo-400 bg-indigo-50/20'}`}
+        } ${field.locked ? 'cursor-pointer' : 'cursor-move touch-none border-2 border-dashed border-indigo-400 bg-indigo-50/20'}`}
         style={{
           left: `${pixelLeft}px`,
           top: `${pixelTop}px`,
@@ -256,23 +259,23 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
         {!field.locked && (
           <>
             <div
-              onMouseDown={(e) => handleMouseDownResize('nw', e)}
-              className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40"
+              onPointerDown={(e) => handleMouseDownResize('nw', e)}
+              className="resize-handle absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40"
               title="Resize checkbox"
             />
             <div
-              onMouseDown={(e) => handleMouseDownResize('ne', e)}
-              className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40"
+              onPointerDown={(e) => handleMouseDownResize('ne', e)}
+              className="resize-handle absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40"
               title="Resize checkbox"
             />
             <div
-              onMouseDown={(e) => handleMouseDownResize('se', e)}
-              className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40"
+              onPointerDown={(e) => handleMouseDownResize('se', e)}
+              className="resize-handle absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40"
               title="Resize checkbox"
             />
             <div
-              onMouseDown={(e) => handleMouseDownResize('sw', e)}
-              className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40"
+              onPointerDown={(e) => handleMouseDownResize('sw', e)}
+              className="resize-handle absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40"
               title="Resize checkbox"
             />
           </>
@@ -317,7 +320,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     >
       {/* Floating control bar when selected (consistent with overlay text boxes) */}
       {isSelected && (
-        <div className="absolute -top-7 left-0 flex items-center space-x-1.5 bg-gray-900 text-white text-xs px-2 py-0.5 rounded shadow-lg z-50 pointer-events-auto">
+        <div className="absolute -top-8 left-0 flex items-center space-x-1.5 bg-gray-900 text-white text-xs px-2 py-0.5 rounded shadow-lg z-50 pointer-events-auto">
           {field.locked ? (
             <button
               type="button"
@@ -333,9 +336,9 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
             </button>
           ) : (
             <div
-              onMouseDown={handleMouseDownMove}
+              onPointerDown={handleMouseDownMove}
               title="Click and drag to move this field anywhere on the PDF"
-              className="flex items-center space-x-1 cursor-move select-none"
+              className="flex items-center space-x-1 cursor-move select-none touch-none py-1"
             >
               <GripHorizontal className="w-3.5 h-3.5 text-indigo-400" />
               <span className="text-[10px] font-semibold tracking-wide uppercase text-indigo-200">Move Field</span>
@@ -401,7 +404,13 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
                 setMultilineHeight(newH);
               }
             }}
-            onFocus={() => onSelect(field.id)}
+            onFocus={(e) => {
+              onSelect(field.id);
+              if (isMobileDevice()) {
+                const el = e.currentTarget;
+                setTimeout(() => el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }), 300);
+              }
+            }}
             placeholder="Type here..."
             rows={1}
             style={{
@@ -446,7 +455,13 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
             type="text"
             value={field.value}
             onChange={(e) => onChange({ ...field, value: e.target.value }, true)}
-            onFocus={() => onSelect(field.id)}
+            onFocus={(e) => {
+              onSelect(field.id);
+              if (isMobileDevice()) {
+                const el = e.currentTarget;
+                setTimeout(() => el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }), 300);
+              }
+            }}
             placeholder="Type here..."
             style={{
               fontFamily: `"${field.fontFamily}", Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`,
@@ -471,50 +486,50 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
         <>
           {/* NW */}
           <div
-            onMouseDown={(e) => handleMouseDownResize('nw', e)}
-            className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40 hover:scale-125 transition-transform"
+            onPointerDown={(e) => handleMouseDownResize('nw', e)}
+            className="resize-handle absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40 hover:scale-125 transition-transform"
             title="Resize North-West"
           />
           {/* N */}
           <div
-            onMouseDown={(e) => handleMouseDownResize('n', e)}
-            className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-ns-resize z-40 hover:scale-125 transition-transform"
+            onPointerDown={(e) => handleMouseDownResize('n', e)}
+            className="resize-handle absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-ns-resize z-40 hover:scale-125 transition-transform"
             title="Resize Height (North)"
           />
           {/* NE */}
           <div
-            onMouseDown={(e) => handleMouseDownResize('ne', e)}
-            className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40 hover:scale-125 transition-transform"
+            onPointerDown={(e) => handleMouseDownResize('ne', e)}
+            className="resize-handle absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40 hover:scale-125 transition-transform"
             title="Resize North-East"
           />
           {/* E */}
           <div
-            onMouseDown={(e) => handleMouseDownResize('e', e)}
-            className="absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-ew-resize z-40 hover:scale-125 transition-transform"
+            onPointerDown={(e) => handleMouseDownResize('e', e)}
+            className="resize-handle absolute top-1/2 -right-1.5 -translate-y-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-ew-resize z-40 hover:scale-125 transition-transform"
             title="Resize Width (East)"
           />
           {/* SE */}
           <div
-            onMouseDown={(e) => handleMouseDownResize('se', e)}
-            className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40 hover:scale-125 transition-transform"
+            onPointerDown={(e) => handleMouseDownResize('se', e)}
+            className="resize-handle absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nwse-resize z-40 hover:scale-125 transition-transform"
             title="Resize South-East"
           />
           {/* S */}
           <div
-            onMouseDown={(e) => handleMouseDownResize('s', e)}
-            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-ns-resize z-40 hover:scale-125 transition-transform"
+            onPointerDown={(e) => handleMouseDownResize('s', e)}
+            className="resize-handle absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-ns-resize z-40 hover:scale-125 transition-transform"
             title="Resize Height (South)"
           />
           {/* SW */}
           <div
-            onMouseDown={(e) => handleMouseDownResize('sw', e)}
-            className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40 hover:scale-125 transition-transform"
+            onPointerDown={(e) => handleMouseDownResize('sw', e)}
+            className="resize-handle absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-nesw-resize z-40 hover:scale-125 transition-transform"
             title="Resize South-West"
           />
           {/* W */}
           <div
-            onMouseDown={(e) => handleMouseDownResize('w', e)}
-            className="absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-ew-resize z-40 hover:scale-125 transition-transform"
+            onPointerDown={(e) => handleMouseDownResize('w', e)}
+            className="resize-handle absolute top-1/2 -left-1.5 -translate-y-1/2 w-3 h-3 bg-white border-2 border-indigo-600 rounded-xs shadow-md cursor-ew-resize z-40 hover:scale-125 transition-transform"
             title="Resize Width (West)"
           />
         </>

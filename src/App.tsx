@@ -199,7 +199,15 @@ export const App: React.FC = () => {
   // Apply font globally
   const handleApplyFontGlobally = useCallback((fontFamily: string) => {
     setFields((prev) => {
-      const next = prev.map((f) => (f.type !== 'checkbox' ? { ...f, fontFamily } : f));
+      let changed = false;
+      const next = prev.map((f) => {
+        if (f.type !== 'checkbox' && f.fontFamily !== fontFamily) {
+          changed = true;
+          return { ...f, fontFamily };
+        }
+        return f;
+      });
+      if (!changed) return prev;
       pushHistory(next);
       return next;
     });
@@ -210,26 +218,36 @@ export const App: React.FC = () => {
   // and the remaining will be changed.
   const handleApplyFontSizeGlobally = useCallback((fontSize: number, keepCustom: boolean = true) => {
     setFields((prev) => {
+      let changed = false;
       const next = prev.map((f) => {
         if (f.type === 'checkbox') return f;
         if (f.id === selectedFieldId) {
-          return {
-            ...f,
-            fontSize,
-            autoFontSize: false,
-            customFontSize: true,
-          };
+          if (f.fontSize !== fontSize || f.autoFontSize) {
+            changed = true;
+            return {
+              ...f,
+              fontSize,
+              autoFontSize: false,
+              customFontSize: true,
+            };
+          }
+          return f;
         }
         if (keepCustom && (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false))) {
           return f; // Keep current state for already changed boxes
         }
-        return {
-          ...f,
-          fontSize,
-          autoFontSize: false,
-          customFontSize: false,
-        };
+        if (f.fontSize !== fontSize || f.autoFontSize) {
+          changed = true;
+          return {
+            ...f,
+            fontSize,
+            autoFontSize: false,
+            customFontSize: false,
+          };
+        }
+        return f;
       });
+      if (!changed) return prev;
       pushHistory(next);
       return next;
     });
@@ -240,24 +258,34 @@ export const App: React.FC = () => {
   // and the remaining will be reverted to auto font size.
   const handleRevertFontSizeGlobally = useCallback((keepCustom: boolean = true) => {
     setFields((prev) => {
+      let changed = false;
       const next = prev.map((f) => {
         if (f.type === 'checkbox') return f;
         if (f.id === selectedFieldId) {
+          if (!f.autoFontSize || f.customFontSize) {
+            changed = true;
+            return {
+              ...f,
+              autoFontSize: true,
+              customFontSize: false,
+            };
+          }
+          return f;
+        }
+        if (keepCustom && (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false))) {
+          return f; // Keep current state for already changed boxes
+        }
+        if (!f.autoFontSize || f.customFontSize) {
+          changed = true;
           return {
             ...f,
             autoFontSize: true,
             customFontSize: false,
           };
         }
-        if (keepCustom && (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false))) {
-          return f; // Keep current state for already changed boxes
-        }
-        return {
-          ...f,
-          autoFontSize: true,
-          customFontSize: false,
-        };
+        return f;
       });
+      if (!changed) return prev;
       pushHistory(next);
       return next;
     });
@@ -266,19 +294,35 @@ export const App: React.FC = () => {
   // Merged global typography action (Apply Font & Size to All)
   const handleApplyTypographyGlobally = useCallback((fontFamily: string, fontSize: number, keepCustom: boolean = true) => {
     setFields((prev) => {
+      let changed = false;
       const next = prev.map((f) => {
         if (f.type === 'checkbox') return f;
         const isSelected = f.id === selectedFieldId;
         const isCustom = keepCustom && (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false));
 
-        return {
-          ...f,
-          fontFamily,
-          fontSize: isSelected ? fontSize : (isCustom ? f.fontSize : fontSize),
-          autoFontSize: isSelected ? false : (isCustom ? f.autoFontSize : false),
-          customFontSize: isSelected ? true : (isCustom ? f.customFontSize : false),
-        };
+        const targetFont = fontFamily;
+        const targetSize = isSelected ? fontSize : (isCustom ? f.fontSize : fontSize);
+        const targetAuto = isSelected ? false : (isCustom ? f.autoFontSize : false);
+        const targetCustom = isSelected ? true : (isCustom ? f.customFontSize : false);
+
+        if (
+          f.fontFamily !== targetFont ||
+          f.fontSize !== targetSize ||
+          f.autoFontSize !== targetAuto ||
+          f.customFontSize !== targetCustom
+        ) {
+          changed = true;
+          return {
+            ...f,
+            fontFamily: targetFont,
+            fontSize: targetSize,
+            autoFontSize: targetAuto,
+            customFontSize: targetCustom,
+          };
+        }
+        return f;
       });
+      if (!changed) return prev;
       pushHistory(next);
       return next;
     });

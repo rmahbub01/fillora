@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { FormField, CheckboxState, HorizontalAlign, VerticalAlign, FontOption, PageInfo } from '../types/pdf';
 import { fontManager } from '../services/fontManager';
 import { getEffectiveFontSizePts } from '../utils/typography';
@@ -128,22 +128,34 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   embedded = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [keepCustomSizes, setKeepCustomSizes] = useState<boolean>(true);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   const showFeedback = (msg: string) => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     setFeedbackMsg(msg);
-    setTimeout(() => {
-      setFeedbackMsg((curr) => (curr === msg ? null : curr));
+    feedbackTimerRef.current = setTimeout(() => {
+      setFeedbackMsg(null);
     }, 2500);
   };
 
-  const customCount = allFields.filter(
-    (f) =>
-      f.type !== 'checkbox' &&
-      f.id !== selectedField?.id &&
-      (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false))
-  ).length;
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    };
+  }, []);
+
+  const customCount = useMemo(
+    () =>
+      allFields.filter(
+        (f) =>
+          f.type !== 'checkbox' &&
+          f.id !== selectedField?.id &&
+          (f.customFontSize === true || (f.customFontSize === undefined && f.autoFontSize === false))
+      ).length,
+    [allFields, selectedField?.id]
+  );
 
   const handleApplyFontToAll = () => {
     if (!selectedField) return;
@@ -373,18 +385,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
           <div className="space-y-4">
             {/* Font Family */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-gray-700">Font Family</label>
-                <button
-                  type="button"
-                  onClick={handleApplyFontToAll}
-                  className="px-2.5 py-1 text-[11px] font-medium text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 hover:text-indigo-800 border border-indigo-200/80 rounded-lg shadow-2xs flex items-center space-x-1.5 transition active:scale-95 cursor-pointer"
-                  title="Apply this font family to all text fields in the document"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Apply to all</span>
-                </button>
-              </div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                Font Family
+              </label>
               <select
                 value={selectedField.fontFamily}
                 onChange={(e) => onUpdateField({ ...selectedField, fontFamily: e.target.value })}
@@ -539,79 +542,88 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                       </p>
                     )}
 
-                    {/* Document-wide Font Size Controls */}
+                    {/* Unified Global Typography / Apply to All Fields */}
                     <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-gray-700 flex items-center space-x-1">
-                          <Baseline className="w-3.5 h-3.5 text-gray-500" />
-                          <span>Overlay Font Size</span>
+                        <span className="text-[11px] font-semibold text-gray-700 flex items-center space-x-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Apply to All Fields</span>
                         </span>
                         {customCount > 0 && (
                           <span
                             className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200"
-                            title={`${customCount} text box(es) have manually adjusted font sizes and will keep their current state`}
+                            title={`${customCount} text box(es) have manually adjusted font sizes and will be preserved`}
                           >
                             {customCount} custom kept
                           </span>
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleApplyFontToAll}
+                          className="py-1.5 px-2 text-[11px] font-medium text-gray-700 bg-white hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 rounded-lg shadow-2xs flex items-center justify-center space-x-1 transition active:scale-95 cursor-pointer"
+                          title={`Apply font "${selectedField.fontFamily}" to all text fields`}
+                        >
+                          <Type className="w-3 h-3 text-gray-500" />
+                          <span>Font</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => handleApplyFontSizeToAll(currentDisplaySize)}
-                          className="py-1.5 px-2 text-xs font-medium text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 hover:text-indigo-800 border border-indigo-200/80 rounded-lg shadow-2xs flex items-center justify-center space-x-1.5 transition active:scale-95 cursor-pointer"
-                          title={`Apply ${currentDisplaySize}pt to remaining overlay text boxes (already changed boxes keep current size)`}
+                          className="py-1.5 px-2 text-[11px] font-medium text-gray-700 bg-white hover:bg-indigo-50 hover:text-indigo-700 border border-gray-200 hover:border-indigo-200 rounded-lg shadow-2xs flex items-center justify-center space-x-1 transition active:scale-95 cursor-pointer"
+                          title={`Apply size ${currentDisplaySize}pt to remaining text fields`}
                         >
-                          <Check className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Apply to all</span>
+                          <Baseline className="w-3 h-3 text-gray-500" />
+                          <span>Size</span>
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleApplyBothToAll(currentDisplaySize)}
+                          className="py-1.5 px-2 text-[11px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 border border-indigo-200/90 rounded-lg shadow-2xs flex items-center justify-center space-x-1 transition active:scale-95 cursor-pointer"
+                          title={`Apply font "${selectedField.fontFamily}" & size ${currentDisplaySize}pt to all text fields`}
+                        >
+                          <Sparkles className="w-3 h-3 text-indigo-600" />
+                          <span>Font & Size</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-0.5 text-[10px]">
+                        <label
+                          className="flex items-center space-x-1.5 text-gray-500 cursor-pointer select-none"
+                          title="When enabled, text boxes where you have already manually adjusted the font size keep their custom size"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={keepCustomSizes}
+                            onChange={(e) => setKeepCustomSizes(e.target.checked)}
+                            className="rounded text-indigo-600 focus:ring-indigo-500 w-3 h-3 cursor-pointer"
+                          />
+                          <span>Keep custom sizes</span>
+                        </label>
 
                         <button
                           type="button"
                           onClick={handleRevertFontSizeToAuto}
-                          className="py-1.5 px-2 text-xs font-medium text-gray-700 bg-white hover:bg-gray-100 hover:text-gray-900 border border-gray-300 rounded-lg shadow-2xs flex items-center justify-center space-x-1.5 transition active:scale-95 cursor-pointer"
-                          title="Revert overlay text boxes to auto font size (already changed boxes keep current size)"
+                          className="text-gray-500 hover:text-gray-800 flex items-center space-x-1 transition cursor-pointer"
+                          title="Revert text fields to auto font size"
                         >
-                          <RotateCcw className="w-3.5 h-3.5 text-gray-500" />
+                          <RotateCcw className="w-2.5 h-2.5 text-gray-400" />
                           <span>Revert auto</span>
                         </button>
                       </div>
 
-                      <label
-                        className="flex items-center space-x-1.5 text-[10px] text-gray-500 cursor-pointer select-none"
-                        title="When enabled, text boxes where you have already manually adjusted the font size keep their custom size"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={keepCustomSizes}
-                          onChange={(e) => setKeepCustomSizes(e.target.checked)}
-                          className="rounded text-indigo-600 focus:ring-indigo-500 w-3 h-3 cursor-pointer"
-                        />
-                        <span>Keep already changed font sizes</span>
-                      </label>
+                      {/* Feedback Toast */}
+                      {feedbackMsg && (
+                        <div className="py-1 px-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg flex items-center space-x-1.5 transition animate-in fade-in">
+                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">{feedbackMsg}</span>
+                        </div>
+                      )}
                     </div>
-
-                    {/* Merged Global Action: Apply Font & Size to all */}
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        onClick={() => handleApplyBothToAll(currentDisplaySize)}
-                        className="w-full py-1.5 px-2.5 text-xs font-medium text-indigo-700 bg-white hover:bg-indigo-50/80 border border-indigo-200/90 hover:border-indigo-300 rounded-lg shadow-2xs flex items-center justify-center space-x-1.5 transition active:scale-95 cursor-pointer"
-                        title={`Apply font "${selectedField.fontFamily}" and size ${currentDisplaySize}pt to all overlay text boxes`}
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Apply Font & Size to all</span>
-                      </button>
-                    </div>
-
-                    {/* Feedback Toast */}
-                    {feedbackMsg && (
-                      <div className="py-1.5 px-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg flex items-center space-x-1.5 transition animate-in fade-in">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span className="truncate">{feedbackMsg}</span>
-                      </div>
-                    )}
                   </div>
                 );
               })()}

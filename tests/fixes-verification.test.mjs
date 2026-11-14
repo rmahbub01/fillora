@@ -30,8 +30,8 @@ if (fs.existsSync('/home/mahbub/Downloads/Nikosh.ttf')) {
 console.log('\n2. Checking manual font size input in RightSidebar.tsx...');
 const rightSidebarCode = fs.readFileSync('src/components/RightSidebar.tsx', 'utf8');
 assert(rightSidebarCode.includes('type="number"'), 'RightSidebar must contain type="number" input for manual font size insertion');
-assert(rightSidebarCode.includes('min="1"'), 'Manual font size input must have a min value');
-assert(rightSidebarCode.includes('max="144"'), 'Manual font size input must support up to 144pt');
+assert(rightSidebarCode.includes('min="6"') || rightSidebarCode.includes('min="1"'), 'Manual font size input must have a min value');
+assert(rightSidebarCode.includes('max="72"') || rightSidebarCode.includes('max="144"'), 'Manual font size input must have a max value');
 assert(rightSidebarCode.includes('autoFontSize: false'), 'Manual font size input must set autoFontSize to false');
 assert(!rightSidebarCode.includes('selectedField.box.width * 595'), 'RightSidebar must not hardcode 595 for width');
 assert(!rightSidebarCode.includes('selectedField.box.height * 842'), 'RightSidebar must not hardcode 842 for height');

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ModelType, DetectionScope } from '../types/pdf';
 import { GithubIcon } from './GithubIcon';
+import { FilloraLogo } from './FilloraLogo';
 import {
   Upload,
   Sparkles,
@@ -93,17 +94,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
     <header className="h-14 bg-white border-b border-gray-200 px-4 flex items-center justify-between z-30 select-none shadow-xs">
       {/* Brand & Open File */}
       <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-base shadow-sm">
-            F
-          </div>
-          <div>
-            <span className="font-bold text-gray-900 text-sm tracking-tight">Fillora</span>
-            <span className="hidden sm:inline-block ml-1.5 px-1.5 py-0.2 text-[10px] bg-indigo-50 text-indigo-700 font-semibold rounded border border-indigo-200/60">
-              AI Form Filler
-            </span>
-          </div>
-        </div>
+        <FilloraLogo size={32} variant="full" />
 
         <div className="w-[1px] h-5 bg-gray-200 mx-1" />
 

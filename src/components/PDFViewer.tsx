@@ -3,6 +3,7 @@ import { FormField, PageInfo } from '../types/pdf';
 import { pdfRenderer } from '../services/pdfRenderer';
 import { FieldOverlay } from './FieldOverlay';
 import { GithubIcon } from './GithubIcon';
+import { FilloraLogo } from './FilloraLogo';
 import { Plus, CheckSquare, Type, ZoomIn, ZoomOut, Maximize2, RotateCcw, Upload, ExternalLink } from 'lucide-react';
 
 interface PDFViewerProps {
@@ -148,12 +149,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 bg-gray-100/90 select-none overflow-y-auto">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-xl border border-gray-200/80 p-8 text-center flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 shadow-xs">
-            <Upload className="w-8 h-8" />
-          </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-1">Upload a PDF Form to Get Started</h2>
+          <FilloraLogo variant="hero" size={68} className="mb-4" />
+
           <p className="text-xs text-gray-500 mb-6 leading-relaxed">
-            Drag and drop your PDF here, or click to browse files from your device. All processing happens 100% locally.
+            Drag and drop any PDF document here, or select a file from your device. All neural form detection and processing happens 100% locally on your computer.
           </p>
 
           <input

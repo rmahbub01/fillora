@@ -1,4 +1,20 @@
-# Fillora — Privacy-First AI-Powered PDF Form Detection & Filling
+<p align="center">
+  <img src="public/fillora-logo.svg" alt="Fillora Logo" width="360" />
+</p>
+
+<p align="center">
+  <strong>Privacy-First AI-Powered PDF Form Detection & Filling</strong><br />
+  <em>100% Client-Side • On-Device Neural Detection • Flawless Complex Unicode & Bengali Support</em>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Privacy-100%25%20On--Device-10B981?style=flat-square&logo=shield" alt="Privacy" />
+  <img src="https://img.shields.io/badge/Inference-WebGPU%20%2F%20WASM-4F46E5?style=flat-square" alt="Inference" />
+  <img src="https://img.shields.io/badge/Language-Bengali%20%2B%20Unicode-06B6D4?style=flat-square" alt="Language" />
+  <img src="https://img.shields.io/badge/License-ISC-gray?style=flat-square" alt="License" />
+</p>
+
+---
 
 **Fillora** is a modern, high-performance, browser-native PDF form detection and filling web application inspired by [pdf-forms.tools](https://app.pdf-forms.tools/).
 

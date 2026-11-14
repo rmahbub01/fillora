@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="sm-stem" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#3730A3" />
+    </linearGradient>
+
+    <linearGradient id="sm-top" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </linearGradient>
+
+    <linearGradient id="sm-field" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06B6D4" />
+      <stop offset="55%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#34D399" />
+    </linearGradient>
+
+    <linearGradient id="sm-spark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0EA5E9" />
+      <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+
+    <filter id="sm-shadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#4338CA" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <g filter="url(#sm-shadow)">
+    <!-- Vertical Spine -->
+    <rect x="28" y="26" width="16" height="76" rx="8" fill="url(#sm-stem)" />
+
+    <!-- Top Arm -->
+    <rect x="36" y="26" width="56" height="16" rx="8" fill="url(#sm-top)" />
+
+    <!-- Fold Notch -->
+    <path d="M92 26 L80 26 C80 30.418 83.582 34 88 34 L92 34 Z" fill="#C7D2FE" opacity="0.8" />
+
+    <!-- Middle Field Fill Bar -->
+    <rect x="36" y="55" width="48" height="16" rx="8" fill="url(#sm-field)" />
+
+    <!-- Checkmark inside Field -->
+    <path d="M68 63 L72.5 67.5 L80 59" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- AI Sparkle -->
+    <g transform="translate(91, 20) scale(0.95)">
+      <path d="M12 0 C12 6.627 6.627 12 0 12 C6.627 12 12 17.373 12 24 C12 17.373 17.373 12 24 12 C17.373 12 12 6.627 12 0 Z" fill="url(#sm-spark)" />
+      <circle cx="12" cy="12" r="2.5" fill="#FFFFFF" />
+    </g>
+  </g>
+</svg>

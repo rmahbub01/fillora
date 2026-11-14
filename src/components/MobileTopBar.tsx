@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Upload, Undo2, Redo2, Download, ShieldCheck } from 'lucide-react';
+import { FilloraLogo } from './FilloraLogo';
 
 interface MobileTopBarProps {
   hasDocument: boolean;
@@ -23,7 +24,7 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
     <header className="bg-white border-b border-gray-200 px-2 safe-top z-30 select-none shrink-0">
       <div className="h-12 flex items-center justify-between">
         <div className="flex items-center">
-          <div className="w-8 h-8 ml-1 mr-1.5 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-base">F</div>
+          <FilloraLogo size={30} variant="mark" className="ml-1 mr-1.5" />
           <input ref={fileRef} type="file" accept="application/pdf" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) onOpenFile(f); e.target.value = ''; }} />
           <button onClick={() => fileRef.current?.click()} className={btn} aria-label="Open PDF"><Upload className="w-5 h-5" /></button>

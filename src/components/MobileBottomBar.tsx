@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { Layers, Sparkles, Plus, Sliders, Type, CheckSquare, AlignLeft } from 'lucide-react';
+import React, { useState } from "react";
+import {
+  Layers,
+  Sparkles,
+  Plus,
+  Sliders,
+  Type,
+  CheckSquare,
+  AlignLeft,
+} from "lucide-react";
 
 interface MobileBottomBarProps {
   disabled: boolean;
@@ -9,29 +17,49 @@ interface MobileBottomBarProps {
   onOpenPages: () => void;
   onOpenDetect: () => void;
   onOpenStyle: () => void;
-  onAddField: (type: 'text' | 'textarea' | 'checkbox') => void;
+  onAddField: (type: "text" | "textarea" | "checkbox") => void;
 }
 
 export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
-  disabled, isDetecting, hasSelection, fieldCount, onOpenPages, onOpenDetect, onOpenStyle, onAddField,
+  disabled,
+  isDetecting,
+  hasSelection,
+  fieldCount,
+  onOpenPages,
+  onOpenDetect,
+  onOpenStyle,
+  onAddField,
 }) => {
   const [addOpen, setAddOpen] = useState(false);
-  const item = 'flex-1 flex flex-col items-center justify-center py-1.5 text-[11px] font-medium rounded-xl active:bg-gray-100 disabled:opacity-40';
+  const item =
+    "flex-1 flex flex-col items-center justify-center py-1.5 text-[11px] font-medium rounded-xl active:bg-gray-100 disabled:opacity-40";
 
   return (
     <nav className="bg-white border-t border-gray-200 safe-bottom z-30 shrink-0 relative select-none">
       {addOpen && (
         <>
-          <div className="fixed inset-0 z-30" onClick={() => setAddOpen(false)} />
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setAddOpen(false)}
+          />
           <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-40 bg-white rounded-2xl shadow-xl border border-gray-200 p-1.5 flex space-x-1">
-            {([
-              ['text', Type, 'Text'],
-              ['textarea', AlignLeft, 'Multiline'],
-              ['checkbox', CheckSquare, 'Checkbox'],
-            ] as const).map(([t, Icon, label]) => (
-              <button key={t} onClick={() => { onAddField(t); setAddOpen(false); }}
-                className="w-20 py-2.5 flex flex-col items-center text-[11px] font-medium text-gray-700 rounded-xl active:bg-indigo-50">
-                <Icon className="w-5 h-5 mb-0.5 text-indigo-600" />{label}
+            {(
+              [
+                ["text", Type, "Text"],
+                ["textarea", AlignLeft, "Multiline"],
+                ["checkbox", CheckSquare, "Checkbox"],
+              ] as const
+            ).map(([t, Icon, label]) => (
+              <button
+                key={t}
+                onClick={() => {
+                  onAddField(t);
+                  setAddOpen(false);
+                }}
+                className="w-20 py-2.5 flex flex-col items-center text-[11px] font-medium text-gray-700 rounded-xl active:bg-indigo-50"
+              >
+                <Icon className="w-5 h-5 mb-0.5 text-indigo-600" />
+                {label}
               </button>
             ))}
           </div>
@@ -39,43 +67,65 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
       )}
 
       <div className="flex items-stretch px-0 py-0 h-14 w-full">
-  {/* Pages Button */}
-  <button className={`${item} flex-1 flex flex-col items-center justify-center`} disabled={disabled} onClick={onOpenPages}>
-    <span className="relative">
-      <Layers className="w-5 h-5 text-gray-600" />
-      {fieldCount > 0 && (
-        <span className="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-indigo-600 text-white text-[9px] leading-4 text-center">
-          {fieldCount}
-        </span>
-      )}
-    </span>
-    <span className="text-gray-600 text-xs mt-0.5">Pages</span>
-  </button>
+        {/* Pages Button */}
+        <button
+          className={`${item} flex-1 flex flex-col items-center justify-center`}
+          disabled={disabled}
+          onClick={onOpenPages}
+        >
+          <span className="relative">
+            <Layers className="w-5 h-5 text-gray-600" />
+            {fieldCount > 0 && (
+              <span className="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-indigo-600 text-white text-[9px] leading-4 text-center">
+                {fieldCount}
+              </span>
+            )}
+          </span>
+          <span className="text-gray-600 text-xs mt-0.5">Pages</span>
+        </button>
 
-  {/* Detect Button */}
-  <button className={`${item} flex-1 flex flex-col items-center justify-center`} disabled={disabled || isDetecting} onClick={onOpenDetect}>
-    <span className="flex items-center justify-center">
-      {isDetecting ? (
-        <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-      ) : (
-        <Sparkles className="w-5 h-5 text-indigo-600" />
-      )}
-    </span>
-    <span className="text-gray-600 text-xs mt-0.5">Detect</span>
-  </button>
+        {/* Detect Button */}
+        <button
+          className={`${item} flex-1 flex flex-col items-center justify-center`}
+          disabled={disabled || isDetecting}
+          onClick={onOpenDetect}
+        >
+          <span className="flex items-center justify-center">
+            {isDetecting ? (
+              <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+            )}
+          </span>
+          <span className="text-gray-600 text-xs mt-0.5">Detect</span>
+        </button>
 
-  {/* Add Button */}
-  <button className={`${item} flex-1 flex flex-col items-center justify-center`} disabled={disabled} onClick={() => setAddOpen((v) => !v)}>
-    <Plus className="w-5 h-5 text-gray-600" />
-    <span className="text-gray-600 text-xs mt-0.5">Add</span>
-  </button>
+        {/* Add Button */}
+        <button
+          className={`${item} flex-1 flex flex-col items-center justify-center`}
+          disabled={disabled}
+          onClick={() => setAddOpen((v) => !v)}
+        >
+          <Plus className="w-5 h-5 text-gray-600" />
+          <span className="text-gray-600 text-xs mt-0.5">Add</span>
+        </button>
 
-  {/* Style Button */}
-  <button className={`${item} flex-1 flex flex-col items-center justify-center`} disabled={disabled || !hasSelection} onClick={onOpenStyle}>
-    <Sliders className={`w-5 h-5 ${hasSelection ? 'text-indigo-600' : 'text-gray-400'}`} />
-    <span className={`text-xs mt-0.5 ${hasSelection ? 'text-indigo-700' : 'text-gray-500'}`}>Style</span>
-  </button>
-</div>
+        {/* Style Button */}
+        <button
+          className={`${item} flex-1 flex flex-col items-center justify-center`}
+          disabled={disabled || !hasSelection}
+          onClick={onOpenStyle}
+        >
+          <Sliders
+            className={`w-5 h-5 ${hasSelection ? "text-indigo-600" : "text-gray-400"}`}
+          />
+          <span
+            className={`text-xs mt-0.5 ${hasSelection ? "text-indigo-700" : "text-gray-500"}`}
+          >
+            Style
+          </span>
+        </button>
+      </div>
     </nav>
   );
 };

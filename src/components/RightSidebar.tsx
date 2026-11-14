@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { FormField, CheckboxState, HorizontalAlign, VerticalAlign, FontOption, PageInfo } from '../types/pdf';
 import { fontManager } from '../services/fontManager';
 import { getEffectiveFontSizePts } from '../utils/typography';
@@ -48,6 +48,69 @@ interface RightSidebarProps {
   /** Render full-width inside a mobile sheet. */
   embedded?: boolean;
 }
+
+interface FontSizeInputProps {
+  value: number;
+  onChange: (newSize: number) => void;
+}
+
+const FontSizeInput: React.FC<FontSizeInputProps> = ({ value, onChange }) => {
+  const [localVal, setLocalVal] = useState<string>(String(value));
+  const [isFocused, setIsFocused] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalVal(String(value));
+    }
+  }, [value, isFocused]);
+
+  const commitValue = (raw: string) => {
+    const normalized = raw.replace(',', '.');
+    const parsed = parseFloat(normalized);
+    if (!isNaN(parsed) && parsed > 0) {
+      const clamped = Math.min(144, Math.max(1, Math.round(parsed * 10) / 10));
+      onChange(clamped);
+      setLocalVal(String(clamped));
+    } else {
+      setLocalVal(String(value));
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      pattern="[0-9]*[.,]?[0-9]*"
+      value={isFocused ? localVal : value}
+      onFocus={(e) => {
+        setIsFocused(true);
+        e.target.select();
+      }}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (/^[0-9]*[.,]?[0-9]*$/.test(raw)) {
+          setLocalVal(raw);
+          const normalized = raw.replace(',', '.');
+          const parsed = parseFloat(normalized);
+          if (!isNaN(parsed) && parsed >= 1 && parsed <= 144) {
+            onChange(Math.round(parsed * 10) / 10);
+          }
+        }
+      }}
+      onBlur={(e) => {
+        setIsFocused(false);
+        commitValue(e.target.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur();
+        }
+      }}
+      className="w-16 px-1.5 py-1 text-sm sm:text-xs font-mono font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-md text-center focus:bg-white focus:border-indigo-500 focus:outline-none select-text touch-manipulation"
+      title="Manually insert exact font size in points (pt)"
+    />
+  );
+};
 
 export const RightSidebar: React.FC<RightSidebarProps> = ({
   selectedField,
@@ -161,7 +224,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   const isCheckbox = selectedField.type === 'checkbox';
 
   return (
-    <div className={`${embedded ? 'w-full' : 'w-80 border-l border-gray-200'} bg-white flex flex-col h-full z-20 select-none overflow-y-auto`}>
+    <div className={`${embedded ? 'w-full' : 'w-80 border-l border-gray-200'} bg-white flex flex-col h-full z-20 overflow-y-auto`}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <div>
@@ -300,7 +363,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   type="text"
                   value={selectedField.color}
                   onChange={(e) => onUpdateField({ ...selectedField, color: e.target.value })}
-                  className="flex-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono"
+                  className="flex-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono select-text"
                 />
               </div>
             </div>
@@ -400,7 +463,23 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 const currentDisplaySize = selectedField.autoFontSize ? effectiveSize : selectedField.fontSize;
                 return (
                   <div className="space-y-1.5">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = Math.max(1, Math.round((currentDisplaySize - 0.5) * 10) / 10);
+                          onUpdateField({
+                            ...selectedField,
+                            fontSize: next,
+                            autoFontSize: false,
+                            customFontSize: true,
+                          });
+                        }}
+                        title="Decrease font size (-0.5pt)"
+                        className="p-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-xs cursor-pointer shrink-0"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
                       <input
                         type="range"
                         min="6"
@@ -416,29 +495,36 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                             customFontSize: true,
                           });
                         }}
-                        className="flex-1 accent-indigo-600 cursor-pointer"
+                        className="flex-1 accent-indigo-600 cursor-pointer min-w-0"
                         title={selectedField.autoFontSize ? 'Drag slider to override auto-fit size' : 'Font size slider'}
                       />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = Math.min(144, Math.round((currentDisplaySize + 0.5) * 10) / 10);
+                          onUpdateField({
+                            ...selectedField,
+                            fontSize: next,
+                            autoFontSize: false,
+                            customFontSize: true,
+                          });
+                        }}
+                        title="Increase font size (+0.5pt)"
+                        className="p-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-xs cursor-pointer shrink-0"
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
                       <div className="flex items-center space-x-1 shrink-0">
-                        <input
-                          type="number"
-                          min="1"
-                          max="144"
-                          step="0.5"
+                        <FontSizeInput
                           value={currentDisplaySize}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val) && val > 0) {
-                              onUpdateField({
-                                ...selectedField,
-                                fontSize: Math.min(144, Math.max(1, Math.round(val * 10) / 10)),
-                                autoFontSize: false,
-                                customFontSize: true,
-                              });
-                            }
+                          onChange={(newSize) => {
+                            onUpdateField({
+                              ...selectedField,
+                              fontSize: newSize,
+                              autoFontSize: false,
+                              customFontSize: true,
+                            });
                           }}
-                          className="w-16 px-1.5 py-1 text-xs font-mono font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-md text-center focus:bg-white focus:border-indigo-500 focus:outline-none"
-                          title="Manually insert exact font size in points (pt)"
                         />
                         <span className="text-[11px] font-mono text-gray-400">pt</span>
                       </div>
@@ -602,7 +688,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   type="text"
                   value={selectedField.color}
                   onChange={(e) => onUpdateField({ ...selectedField, color: e.target.value })}
-                  className="flex-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono"
+                  className="flex-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono select-text"
                 />
               </div>
             </div>
@@ -762,7 +848,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                           onUpdateField({ ...selectedField, lineHeight: val });
                         }
                       }}
-                      className="w-full px-1.5 py-1 text-xs text-center font-mono bg-white border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500"
+                      className="w-full px-1.5 py-1 text-xs text-center font-mono bg-white border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500 select-text"
                     />
                   </div>
                 </div>
@@ -793,7 +879,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                       });
                     }
                   }}
-                  className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono"
+                  className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono select-text"
                 />
               </div>
               <div>
@@ -811,7 +897,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                       });
                     }
                   }}
-                  className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono"
+                  className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono select-text"
                 />
               </div>
               <div>
@@ -829,7 +915,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                       });
                     }
                   }}
-                  className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono"
+                  className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono select-text"
                 />
               </div>
               <div>
@@ -847,7 +933,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                       });
                     }
                   }}
-                  className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono"
+                  className="w-full mt-0.5 px-2 py-1 bg-gray-50 border border-gray-200 rounded font-mono select-text"
                 />
               </div>
             </div>

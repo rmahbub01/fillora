@@ -38,32 +38,44 @@ export const MobileBottomBar: React.FC<MobileBottomBarProps> = ({
         </>
       )}
 
-      <div className="flex items-stretch px-2 pt-1 h-14">
-        <button className={item} disabled={disabled} onClick={onOpenPages}>
-          <span className="relative"><Layers className="w-5 h-5 text-gray-600" />
-            {fieldCount > 0 && <span className="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-indigo-600 text-white text-[9px] leading-4 text-center">{fieldCount}</span>}
-          </span>
-          <span className="text-gray-600">Pages</span>
-        </button>
+      <div className="flex items-stretch px-0 py-0 h-14 w-full">
+  {/* Pages Button */}
+  <button className={`${item} flex-1 flex flex-col items-center justify-center`} disabled={disabled} onClick={onOpenPages}>
+    <span className="relative">
+      <Layers className="w-5 h-5 text-gray-600" />
+      {fieldCount > 0 && (
+        <span className="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-indigo-600 text-white text-[9px] leading-4 text-center">
+          {fieldCount}
+        </span>
+      )}
+    </span>
+    <span className="text-gray-600 text-xs mt-0.5">Pages</span>
+  </button>
 
-        <button className={`${item} text-indigo-700`} disabled={disabled || isDetecting} onClick={onOpenDetect}>
-          <span className="w-10 h-8 -mt-3 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md">
-            {isDetecting
-              ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : <Sparkles className="w-5 h-5" />}
-          </span>
-          <span>Detect</span>
-        </button>
+  {/* Detect Button */}
+  <button className={`${item} flex-1 flex flex-col items-center justify-center`} disabled={disabled || isDetecting} onClick={onOpenDetect}>
+    <span className="flex items-center justify-center">
+      {isDetecting ? (
+        <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <Sparkles className="w-5 h-5 text-indigo-600" />
+      )}
+    </span>
+    <span className="text-gray-600 text-xs mt-0.5">Detect</span>
+  </button>
 
-        <button className={item} disabled={disabled} onClick={() => setAddOpen((v) => !v)}>
-          <Plus className="w-5 h-5 text-gray-600" /><span className="text-gray-600">Add</span>
-        </button>
+  {/* Add Button */}
+  <button className={`${item} flex-1 flex flex-col items-center justify-center`} disabled={disabled} onClick={() => setAddOpen((v) => !v)}>
+    <Plus className="w-5 h-5 text-gray-600" />
+    <span className="text-gray-600 text-xs mt-0.5">Add</span>
+  </button>
 
-        <button className={item} disabled={disabled || !hasSelection} onClick={onOpenStyle}>
-          <Sliders className={`w-5 h-5 ${hasSelection ? 'text-indigo-600' : 'text-gray-400'}`} />
-          <span className={hasSelection ? 'text-indigo-700' : 'text-gray-500'}>Style</span>
-        </button>
-      </div>
+  {/* Style Button */}
+  <button className={`${item} flex-1 flex flex-col items-center justify-center`} disabled={disabled || !hasSelection} onClick={onOpenStyle}>
+    <Sliders className={`w-5 h-5 ${hasSelection ? 'text-indigo-600' : 'text-gray-400'}`} />
+    <span className={`text-xs mt-0.5 ${hasSelection ? 'text-indigo-700' : 'text-gray-500'}`}>Style</span>
+  </button>
+</div>
     </nav>
   );
 };

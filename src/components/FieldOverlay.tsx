@@ -36,7 +36,15 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState<string | null>(null);
-  const [dragStart, setDragStart] = useState({ mouseX: 0, mouseY: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 });
+  const [dragStart, setDragStart] = useState<{
+    pointerId?: number;
+    mouseX: number;
+    mouseY: number;
+    boxX: number;
+    boxY: number;
+    boxW: number;
+    boxH: number;
+  }>({ mouseX: 0, mouseY: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 });
   const dragDistRef = useRef<number>(0);
   const currentBoxRef = useRef(field.box);
   const multilineHeightRef = useRef<number>(0);
@@ -106,11 +114,13 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
 
   const handleMouseDownMove = (e: React.PointerEvent) => {
     if (field.locked) return;
+    if (e.pointerType === 'touch' && !e.isPrimary) return;
     e.stopPropagation();
     onSelect(field.id);
     setIsDragging(true);
     dragDistRef.current = 0;
     setDragStart({
+      pointerId: e.pointerId,
       mouseX: e.clientX,
       mouseY: e.clientY,
       boxX: field.box.x,
@@ -122,10 +132,12 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
 
   const handleMouseDownResize = (direction: string, e: React.PointerEvent) => {
     if (field.locked) return;
+    if (e.pointerType === 'touch' && !e.isPrimary) return;
     e.stopPropagation();
     onSelect(field.id);
     setIsResizing(direction);
     setDragStart({
+      pointerId: e.pointerId,
       mouseX: e.clientX,
       mouseY: e.clientY,
       boxX: field.box.x,
@@ -161,6 +173,9 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     if (!isDragging && !isResizing) return;
 
     const handleMouseMove = (e: PointerEvent) => {
+      if (dragStartRef.current.pointerId !== undefined && e.pointerId !== dragStartRef.current.pointerId) {
+        return;
+      }
       const curDragStart = dragStartRef.current;
       const curPageW = pageWidthRef.current;
       const curPageH = pageHeightRef.current;
@@ -311,7 +326,10 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: PointerEvent) => {
+      if (dragStartRef.current.pointerId !== undefined && e.pointerId !== dragStartRef.current.pointerId) {
+        return;
+      }
       const b = currentBoxRef.current;
       const cleanBox = {
         x: Math.round(b.x * 10000) / 10000,

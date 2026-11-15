@@ -94,23 +94,33 @@ export class PdfRendererService {
     if (wanted > budget) dpr = Math.max(1, Math.sqrt(budget / (base.width * base.height)));
     const viewport = page.getViewport({ scale: scale * dpr });
     
-    canvas.width = Math.floor(viewport.width);
-    canvas.height = Math.floor(viewport.height);
-    canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
-    canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
+    const targetW = Math.floor(viewport.width);
+    const targetH = Math.floor(viewport.height);
 
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) return;
+    // Double-buffered render: render into an offscreen scratch canvas first so the visible canvas
+    // never flashes blank while rendering a new zoom level.
+    const offscreen = document.createElement('canvas');
+    offscreen.width = targetW;
+    offscreen.height = targetH;
+    const offCtx = offscreen.getContext('2d', { alpha: false });
+    if (!offCtx) return;
 
     const task = page.render({
-      canvas,
-      canvasContext: ctx,
+      canvas: offscreen,
+      canvasContext: offCtx,
       viewport: viewport,
       intent: 'display',
     });
     this.renderTasks.set(canvas, task);
     try {
       await task.promise;
+      // Copy completed render to the visible canvas in a single instant paint
+      if (canvas.width !== targetW) canvas.width = targetW;
+      if (canvas.height !== targetH) canvas.height = targetH;
+      canvas.style.width = `${Math.floor(targetW / dpr)}px`;
+      canvas.style.height = `${Math.floor(targetH / dpr)}px`;
+      const mainCtx = canvas.getContext('2d', { alpha: false });
+      mainCtx?.drawImage(offscreen, 0, 0);
     } catch (err: any) {
       if (err?.name !== 'RenderingCancelledException') throw err; // cancelled by a newer render: expected
     } finally {

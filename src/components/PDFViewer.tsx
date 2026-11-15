@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import { FormField, PageInfo } from '../types/pdf';
 import { pdfRenderer } from '../services/pdfRenderer';
 import { FieldOverlay } from './FieldOverlay';
@@ -45,7 +45,26 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const [isRendering, setIsRendering] = useState(false);
   const pageWrapRef = useRef<HTMLDivElement>(null);
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const pinchRef = useRef<{ startDist: number; scale: number } | null>(null);
+  const pinchRef = useRef<{
+    startDist: number;
+    startZoom: number;
+    scale: number;
+    targetZoom: number;
+    startMidX: number;
+    startMidY: number;
+    currMidX: number;
+    currMidY: number;
+    currDx: number;
+    currDy: number;
+    originX: number;
+    originY: number;
+    pdfX: number;
+    pdfY: number;
+    viewportX: number;
+    viewportY: number;
+  } | null>(null);
+  const pendingZoomCommitRef = useRef<{ targetScrollLeft: number; targetScrollTop: number } | null>(null);
+  const lastRenderedPageRef = useRef<number | null>(null);
   const zoomRef = useRef(zoomScale);
   zoomRef.current = zoomScale;
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pageX: number; pageY: number } | null>(null);
@@ -58,21 +77,29 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   // Render PDF page when pageIndex or zoomScale changes
   useEffect(() => {
     let isCancelled = false;
+    const isPageChange = lastRenderedPageRef.current !== pageIndex;
+    lastRenderedPageRef.current = pageIndex;
 
     const render = async () => {
       if (!canvasRef.current || !pageInfo) return;
-      setIsRendering(true);
-      // Clear canvas context to prevent holding previous PDF/page preview
-      const ctx = canvasRef.current.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      // Only show full-screen spinner and clear canvas when switching pages,
+      // NOT during zoom on the same page (prevents flashing white / reload feel).
+      if (isPageChange) {
+        setIsRendering(true);
+        // Clear canvas context to prevent holding previous PDF/page preview
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        }
       }
       try {
         await pdfRenderer.renderPageToCanvas(pageIndex, canvasRef.current, zoomScale);
       } catch (err) {
         console.error('Render error:', err);
       } finally {
-        if (!isCancelled) setIsRendering(false);
+        if (!isCancelled && isPageChange) {
+          setIsRendering(false);
+        }
       }
     };
 
@@ -81,6 +108,55 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       isCancelled = true;
     };
   }, [pageIndex, zoomScale, pageInfo]);
+
+  // Synchronously update scroll position and clear CSS transform before browser paints
+  useLayoutEffect(() => {
+    if (pendingZoomCommitRef.current) {
+      const { targetScrollLeft, targetScrollTop } = pendingZoomCommitRef.current;
+      pendingZoomCommitRef.current = null;
+
+      if (pageWrapRef.current) {
+        pageWrapRef.current.style.transform = '';
+        pageWrapRef.current.style.transformOrigin = '';
+        pageWrapRef.current.style.willChange = '';
+      }
+      if (containerRef.current) {
+        containerRef.current.scrollLeft = targetScrollLeft;
+        containerRef.current.scrollTop = targetScrollTop;
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollLeft = targetScrollLeft;
+            containerRef.current.scrollTop = targetScrollTop;
+          }
+        });
+      }
+    }
+  }, [zoomScale]);
+
+  // Touch gesture safety: prevent native browser pull-to-refresh & pinch zoom on the container
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+      }
+    };
+
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+    };
+  }, []);
 
   // Mobile: fit page width to the screen when a document (or a different page size) loads
   useEffect(() => {
@@ -92,38 +168,208 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, fitSignal, pageInfo?.width]);
 
-  // Two-finger pinch zoom: transform the wrapper while pinching (cheap),
-  // then commit the real zoom once on release so the canvas re-renders only once.
-  const handlePointerDownC = (e: React.PointerEvent) => {
+  const startPinchZoom = () => {
+    if (pointersRef.current.size < 2 || !pageWrapRef.current || !containerRef.current) return;
+    const [a, b] = [...pointersRef.current.values()];
+    const startDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+    const startMidX = (a.x + b.x) / 2;
+    const startMidY = (a.y + b.y) / 2;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const pageRect = pageWrapRef.current.getBoundingClientRect();
+
+    const originX = startMidX - pageRect.left;
+    const originY = startMidY - pageRect.top;
+
+    const currentZoom = zoomRef.current;
+    const pdfX = originX / currentZoom;
+    const pdfY = originY / currentZoom;
+
+    const viewportX = startMidX - containerRect.left;
+    const viewportY = startMidY - containerRect.top;
+
+    pinchRef.current = {
+      startDist,
+      startZoom: currentZoom,
+      scale: 1,
+      targetZoom: currentZoom,
+      startMidX,
+      startMidY,
+      currMidX: startMidX,
+      currMidY: startMidY,
+      currDx: 0,
+      currDy: 0,
+      originX,
+      originY,
+      pdfX,
+      pdfY,
+      viewportX,
+      viewportY,
+    };
+
+    pageWrapRef.current.style.transformOrigin = `${originX}px ${originY}px`;
+    pageWrapRef.current.style.willChange = 'transform';
+  };
+
+  const finishPinchZoom = () => {
+    const pinch = pinchRef.current;
+    pinchRef.current = null;
+    if (!pinch || !pageWrapRef.current || !containerRef.current || !pageInfo) {
+      if (pageWrapRef.current) {
+        pageWrapRef.current.style.transform = '';
+        pageWrapRef.current.style.transformOrigin = '';
+        pageWrapRef.current.style.willChange = '';
+      }
+      return;
+    }
+
+    const finalZoom = Math.max(0.3, Math.min(2.5, pinch.targetZoom));
+    const hasZoomChanged = Math.abs(finalZoom - pinch.startZoom) > 0.005;
+    const hasMoved = Math.hypot(pinch.currDx, pinch.currDy) > 5;
+
+    if (!hasZoomChanged && !hasMoved) {
+      pageWrapRef.current.style.transform = '';
+      pageWrapRef.current.style.transformOrigin = '';
+      pageWrapRef.current.style.willChange = '';
+      return;
+    }
+
+    const container = containerRef.current;
+    const style = window.getComputedStyle(container);
+    const padLeft = parseFloat(style.paddingLeft) || (isMobile ? 8 : 32);
+    const padTop = parseFloat(style.paddingTop) || (isMobile ? 8 : 32);
+    const padRight = parseFloat(style.paddingRight) || (isMobile ? 8 : 32);
+
+    const newWrapWidth = pageInfo.width * finalZoom;
+    const availWidth = container.clientWidth - padLeft - padRight;
+
+    const wrapLeft = newWrapWidth < availWidth
+      ? padLeft + (availWidth - newWrapWidth) / 2
+      : padLeft;
+    const wrapTop = padTop;
+
+    const focalContentX = wrapLeft + pinch.pdfX * finalZoom;
+    const focalContentY = wrapTop + pinch.pdfY * finalZoom;
+
+    const finalViewportX = pinch.viewportX + pinch.currDx;
+    const finalViewportY = pinch.viewportY + pinch.currDy;
+
+    const targetScrollLeft = Math.max(0, focalContentX - finalViewportX);
+    const targetScrollTop = Math.max(0, focalContentY - finalViewportY);
+
+    if (hasZoomChanged) {
+      pendingZoomCommitRef.current = {
+        targetScrollLeft,
+        targetScrollTop,
+      };
+      onZoomChange(finalZoom);
+    } else {
+      pageWrapRef.current.style.transform = '';
+      pageWrapRef.current.style.transformOrigin = '';
+      pageWrapRef.current.style.willChange = '';
+      container.scrollLeft = targetScrollLeft;
+      container.scrollTop = targetScrollTop;
+    }
+  };
+
+  useEffect(() => {
+    const onWindowPointerMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') return;
+      if (!pointersRef.current.has(e.pointerId)) return;
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (pinchRef.current && pointersRef.current.size >= 2 && pageWrapRef.current) {
+        const [a, b] = [...pointersRef.current.values()];
+        const currDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        const currMidX = (a.x + b.x) / 2;
+        const currMidY = (a.y + b.y) / 2;
+
+        const dx = currMidX - pinchRef.current.startMidX;
+        const dy = currMidY - pinchRef.current.startMidY;
+
+        const ratio = currDist / pinchRef.current.startDist;
+        const targetZoom = Math.max(0.3, Math.min(2.5, pinchRef.current.startZoom * ratio));
+        const scale = targetZoom / pinchRef.current.startZoom;
+
+        pinchRef.current.scale = scale;
+        pinchRef.current.targetZoom = targetZoom;
+        pinchRef.current.currMidX = currMidX;
+        pinchRef.current.currMidY = currMidY;
+        pinchRef.current.currDx = dx;
+        pinchRef.current.currDy = dy;
+
+        pageWrapRef.current.style.transformOrigin = `${pinchRef.current.originX}px ${pinchRef.current.originY}px`;
+        pageWrapRef.current.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${scale})`;
+      }
+    };
+
+    const onWindowPointerUp = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') return;
+      if (!pointersRef.current.has(e.pointerId)) return;
+      pointersRef.current.delete(e.pointerId);
+
+      if (pinchRef.current && pointersRef.current.size < 2) {
+        finishPinchZoom();
+      }
+    };
+
+    window.addEventListener('pointermove', onWindowPointerMove);
+    window.addEventListener('pointerup', onWindowPointerUp);
+    window.addEventListener('pointercancel', onWindowPointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', onWindowPointerMove);
+      window.removeEventListener('pointerup', onWindowPointerUp);
+      window.removeEventListener('pointercancel', onWindowPointerUp);
+    };
+  }, [pageInfo, isMobile]);
+
+  const handlePointerDownCapture = (e: React.PointerEvent) => {
     if (e.pointerType !== 'touch') return;
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointersRef.current.size === 2) {
-      const [a, b] = [...pointersRef.current.values()];
-      pinchRef.current = { startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1, scale: 1 };
+      startPinchZoom();
     }
   };
-  const handlePointerMoveC = (e: React.PointerEvent) => {
-    if (!pointersRef.current.has(e.pointerId)) return;
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pinchRef.current && pointersRef.current.size === 2 && pageWrapRef.current) {
-      const [a, b] = [...pointersRef.current.values()];
-      const ratio = Math.hypot(a.x - b.x, a.y - b.y) / pinchRef.current.startDist;
-      const target = Math.max(0.5, Math.min(2.5, zoomRef.current * ratio));
-      pinchRef.current.scale = target / zoomRef.current;
-      pageWrapRef.current.style.transformOrigin = 'top center';
-      pageWrapRef.current.style.transform = `scale(${pinchRef.current.scale})`;
+
+  const handleToolbarZoom = (newScale: number) => {
+    if (!containerRef.current || !pageInfo) {
+      onZoomChange(newScale);
+      return;
     }
-  };
-  const endPointerC = (e: React.PointerEvent) => {
-    pointersRef.current.delete(e.pointerId);
-    if (pinchRef.current && pointersRef.current.size < 2) {
-      const factor = pinchRef.current.scale;
-      pinchRef.current = null;
-      if (pageWrapRef.current) pageWrapRef.current.style.transform = '';
-      if (Math.abs(factor - 1) > 0.02) {
-        onZoomChange(Math.max(0.5, Math.min(2.5, zoomRef.current * factor)));
-      }
-    }
+    const container = containerRef.current;
+    const oldZoom = zoomScale;
+    const finalZoom = Math.max(0.3, Math.min(2.5, newScale));
+    if (Math.abs(finalZoom - oldZoom) < 0.005) return;
+
+    const style = window.getComputedStyle(container);
+    const padLeft = parseFloat(style.paddingLeft) || (isMobile ? 8 : 32);
+    const padRight = parseFloat(style.paddingRight) || (isMobile ? 8 : 32);
+    const padTop = parseFloat(style.paddingTop) || (isMobile ? 8 : 32);
+
+    const availW = container.clientWidth - padLeft - padRight;
+    const oldWrapW = pageInfo.width * oldZoom;
+    const oldWrapLeft = oldWrapW < availW ? padLeft + (availW - oldWrapW) / 2 : padLeft;
+    const oldWrapTop = padTop;
+
+    const viewCenterX = container.clientWidth / 2;
+    const viewCenterY = container.clientHeight / 2;
+    const pdfCenterX = (container.scrollLeft + viewCenterX - oldWrapLeft) / oldZoom;
+    const pdfCenterY = (container.scrollTop + viewCenterY - oldWrapTop) / oldZoom;
+
+    const newWrapW = pageInfo.width * finalZoom;
+    const newWrapLeft = newWrapW < availW ? padLeft + (availW - newWrapW) / 2 : padLeft;
+    const newWrapTop = padTop;
+
+    const targetScrollLeft = Math.max(0, newWrapLeft + pdfCenterX * finalZoom - viewCenterX);
+    const targetScrollTop = Math.max(0, newWrapTop + pdfCenterY * finalZoom - viewCenterY);
+
+    pendingZoomCommitRef.current = {
+      targetScrollLeft,
+      targetScrollTop,
+    };
+
+    onZoomChange(finalZoom);
   };
 
   const handleContainerClick = (e: React.MouseEvent) => {
@@ -229,11 +475,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         ref={containerRef}
         onClick={handleContainerClick}
         onContextMenu={handleCanvasContextMenu}
-        onPointerDown={handlePointerDownC}
-        onPointerMove={handlePointerMoveC}
-        onPointerUp={endPointerC}
-        onPointerCancel={endPointerC}
-        style={{ touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' }}
+        onPointerDownCapture={handlePointerDownCapture}
+        style={{
+          touchAction: 'pan-x pan-y',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
+        }}
         className={`flex-1 relative overflow-auto bg-gray-100/90 flex ${isMobile ? 'justify-start p-2 pb-24' : 'justify-center p-8'} select-none`}
       >
         {/* PDF Page Wrapper */}
@@ -340,7 +587,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         ? "absolute right-3 bottom-3 bg-white/95 backdrop-blur-md rounded-full shadow-md border border-gray-200/90 py-1 px-2 flex items-center space-x-1 z-30 pointer-events-auto select-none"
         : "absolute right-0 top-1/2 -translate-y-1/2 bg-white/95 backdrop-blur-md rounded-l-xl shadow-md border-y border-l border-gray-200/90 py-2 px-1.5 flex flex-col items-center space-y-2 z-30 pointer-events-auto select-none"}>
         <button
-          onClick={() => onZoomChange(Math.min(2.5, zoomScale + 0.15))}
+          onClick={() => handleToolbarZoom(zoomScale + 0.15)}
           title="Zoom In"
           className="p-2 md:p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
         >
@@ -352,7 +599,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         </span>
 
         <button
-          onClick={() => onZoomChange(Math.max(0.5, zoomScale - 0.15))}
+          onClick={() => handleToolbarZoom(zoomScale - 0.15)}
           title="Zoom Out"
           className="p-2 md:p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
         >

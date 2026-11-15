@@ -64,6 +64,9 @@ export default defineConfig({
           if (id.includes('node_modules/lucide-react')) {
             return 'lucide-icons';
           }
+          if (id.includes('src/services/heuristicDetector') || id.includes('src/services/aiDetector')) {
+            return 'detector-services';
+          }
         }
       }
     },

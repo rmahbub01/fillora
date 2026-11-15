@@ -30,6 +30,8 @@ import {
   Italic,
   Underline,
   Strikethrough,
+  LayoutGrid,
+  Columns3,
 } from 'lucide-react';
 
 interface RightSidebarProps {
@@ -43,6 +45,7 @@ interface RightSidebarProps {
   onApplyFontSizeGlobally?: (fontSize: number, keepCustom?: boolean) => void;
   onRevertFontSizeGlobally?: (keepCustom?: boolean) => void;
   onApplyTypographyGlobally?: (fontFamily: string, fontSize: number, keepCustom?: boolean) => void;
+  onSplitCombField?: (field: FormField) => void;
   allFonts: FontOption[];
   onFontUploaded: (font: FontOption) => void;
   /** Render full-width inside a mobile sheet. */
@@ -123,6 +126,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   onApplyFontSizeGlobally,
   onRevertFontSizeGlobally,
   onApplyTypographyGlobally,
+  onSplitCombField,
   allFonts,
   onFontUploaded,
   embedded = false,
@@ -583,7 +587,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                         <button
                           type="button"
                           onClick={() => handleApplyBothToAll(currentDisplaySize)}
-                          className="py-1.5 px-2 text-[11px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 border border-indigo-200/90 rounded-lg shadow-2xs flex items-center justify-center space-x-1 transition active:scale-95 cursor-pointer"
+                          className="py-1.5 px-2 text-[11px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 border border-indigo-200/80 rounded-lg shadow-2xs flex items-center justify-center space-x-1 transition active:scale-95 cursor-pointer"
                           title={`Apply font "${selectedField.fontFamily}" & size ${currentDisplaySize}pt to all text fields`}
                         >
                           <Sparkles className="w-3 h-3 text-indigo-600" />
@@ -594,7 +598,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                       <div className="flex items-center justify-between pt-0.5 text-[10px]">
                         <label
                           className="flex items-center space-x-1.5 text-gray-500 cursor-pointer select-none"
-                          title="When enabled, text boxes where you have already manually adjusted the font size keep their custom size"
+                          title="Keep already changed font sizes (When enabled, text boxes where you have already manually adjusted the font size keep their custom size)"
                         >
                           <input
                             type="checkbox"
@@ -864,6 +868,127 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                     />
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Segmented Boxes (Comb Field) for Date, Account No, Mobile, NID */}
+            {!selectedField.multiline && (
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <LayoutGrid className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="font-semibold text-gray-800">Segmented (Comb Boxes)</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={!!selectedField.isComb}
+                    onChange={(e) => {
+                      const isComb = e.target.checked;
+                      onUpdateField({
+                        ...selectedField,
+                        isComb,
+                        combCells: selectedField.combCells || 11,
+                        hAlign: isComb ? 'center' : selectedField.hAlign,
+                      });
+                    }}
+                    className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                    title="Toggle segmented character boxes (comb field)"
+                  />
+                </div>
+
+                <p className="text-[11px] text-gray-500 leading-normal">
+                  Evenly spaces characters into adjacent small boxes (e.g. Date, Mobile, Account No, NID).
+                </p>
+
+                {selectedField.isComb && (
+                  <div className="space-y-2 pt-1 border-t border-gray-200/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-700">Number of Boxes:</span>
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = selectedField.combCells || 11;
+                            if (cur > 2) {
+                              onUpdateField({ ...selectedField, combCells: cur - 1 });
+                            }
+                          }}
+                          className="p-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-xs cursor-pointer"
+                          title="Decrease box count"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <input
+                          type="number"
+                          min="2"
+                          max="50"
+                          value={selectedField.combCells || 11}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            if (!isNaN(val) && val >= 2 && val <= 50) {
+                              onUpdateField({ ...selectedField, combCells: val });
+                            }
+                          }}
+                          className="w-14 px-1.5 py-0.5 text-xs font-mono font-bold text-center bg-white border border-gray-200 rounded focus:border-indigo-500 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = selectedField.combCells || 11;
+                            if (cur < 50) {
+                              onUpdateField({ ...selectedField, combCells: cur + 1 });
+                            }
+                          }}
+                          className="p-1 rounded bg-white border border-gray-200 text-gray-600 hover:bg-gray-100 transition shadow-xs cursor-pointer"
+                          title="Increase box count"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div>
+                      <span className="text-[10px] text-gray-400 block mb-1">Quick Presets:</span>
+                      <div className="grid grid-cols-4 gap-1">
+                        {[
+                          { label: 'Date (8)', count: 8 },
+                          { label: 'Mobile (11)', count: 11 },
+                          { label: 'A/C (14)', count: 14 },
+                          { label: 'NID (17)', count: 17 },
+                        ].map((p) => (
+                          <button
+                            key={p.label}
+                            type="button"
+                            onClick={() => onUpdateField({ ...selectedField, isComb: true, combCells: p.count, hAlign: 'center' })}
+                            className={`py-1 px-1 text-[10px] rounded transition truncate cursor-pointer ${
+                              (selectedField.combCells || 11) === p.count
+                                ? 'bg-indigo-600 text-white font-medium shadow-xs'
+                                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Split into separate text boxes button */}
+                    {onSplitCombField && (
+                      <div className="pt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onSplitCombField(selectedField)}
+                          className="w-full py-1.5 px-2 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-lg text-[11px] font-medium transition shadow-2xs flex items-center justify-center space-x-1.5 cursor-pointer"
+                          title="Split this comb into individual separate text boxes"
+                        >
+                          <Columns3 className="w-3.5 h-3.5 text-gray-500" />
+                          <span>Split into {selectedField.combCells || 11} separate text boxes</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

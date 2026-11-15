@@ -156,6 +156,43 @@ export const App: React.FC = () => {
     setSelectedFieldId(duplicated.id);
   }, [pushHistory]);
 
+  // Split a comb field into individual separate fields
+  const handleSplitCombField = useCallback((field: FormField) => {
+    if (!field.isComb || !field.combCells || field.combCells <= 1) return;
+    const numCells = field.combCells;
+    const cellWidth = Math.round((field.box.width / numCells) * 10000) / 10000;
+    const newFields: FormField[] = [];
+
+    for (let i = 0; i < numCells; i++) {
+      newFields.push({
+        ...field,
+        id: `field_split_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 5)}`,
+        box: {
+          x: Math.round((field.box.x + i * cellWidth) * 10000) / 10000,
+          y: field.box.y,
+          width: cellWidth,
+          height: field.box.height,
+        },
+        isComb: false,
+        combCells: undefined,
+        value: field.value[i] || '',
+        label: `${field.label || 'Box'} ${i + 1}`,
+        hAlign: 'center',
+        locked: field.locked,
+      });
+    }
+
+    setFields((prev) => {
+      const next = prev.filter((f) => f.id !== field.id).concat(newFields);
+      pushHistory(next);
+      return next;
+    });
+
+    if (newFields.length > 0) {
+      setSelectedFieldId(newFields[0].id);
+    }
+  }, [pushHistory]);
+
   // Add manual field at coordinates
   const handleAddManualField = useCallback((type: FormField['type'], normX: number = 0.2, normY: number = 0.2) => {
     const isCheckbox = type === 'checkbox';
@@ -484,6 +521,9 @@ export const App: React.FC = () => {
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeElem = document.activeElement;
+      const isTyping = activeElem?.tagName === 'INPUT' || activeElem?.tagName === 'TEXTAREA';
+
       // Undo: Ctrl+Z / Cmd+Z
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -508,8 +548,6 @@ export const App: React.FC = () => {
       }
       // Delete selected field if not currently typing in an input
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedFieldId) {
-        const activeElem = document.activeElement;
-        const isTyping = activeElem?.tagName === 'INPUT' || activeElem?.tagName === 'TEXTAREA';
         if (!isTyping) {
           e.preventDefault();
           handleDeleteField(selectedFieldId);
@@ -535,11 +573,21 @@ export const App: React.FC = () => {
           setSelectedFieldId(pageFields[prevIdx].id);
         }
       }
+      // PageUp / PageDown navigation when not typing
+      if (!isTyping) {
+        if (e.key === 'PageDown' || (e.altKey && e.key === 'ArrowDown')) {
+          e.preventDefault();
+          setActivePageIndex((i) => Math.min(pageInfos.length - 1, i + 1));
+        } else if (e.key === 'PageUp' || (e.altKey && e.key === 'ArrowUp')) {
+          e.preventDefault();
+          setActivePageIndex((i) => Math.max(0, i - 1));
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, selectedFieldId, handleToggleLock, handleDeleteField, fields, activePageIndex]);
+  }, [handleUndo, handleRedo, selectedFieldId, handleToggleLock, handleDeleteField, fields, activePageIndex, pageInfos.length]);
 
   // Drag and drop PDF files onto workspace
   const handleDragOver = (e: React.DragEvent) => {
@@ -570,6 +618,7 @@ export const App: React.FC = () => {
     onApplyFontSizeGlobally: handleApplyFontSizeGlobally,
     onRevertFontSizeGlobally: handleRevertFontSizeGlobally,
     onApplyTypographyGlobally: handleApplyTypographyGlobally,
+    onSplitCombField: handleSplitCombField,
     allFonts,
     onFontUploaded: (newFont: FontOption) => setAllFonts((prev) => [...prev, newFont]),
   };
@@ -733,7 +782,41 @@ export const App: React.FC = () => {
           onDeleteField={handleDeleteField}
           onClearPageFields={handleClearPageFields}
         />
-        <PDFViewer {...viewerProps} />
+        <div className="flex-1 flex overflow-hidden relative min-h-0">
+          <PDFViewer {...viewerProps} />
+
+          {/* Desktop floating page change pill (matching mobile design) */}
+          {pageInfos.length > 1 && (
+            <div className="absolute left-6 bottom-4 z-30 bg-white/95 backdrop-blur-md rounded-full shadow-lg border border-gray-200/90 flex items-center text-xs font-semibold text-gray-700 select-none hover:shadow-xl transition-all">
+              <button
+                type="button"
+                aria-label="Previous page"
+                title="Previous page (PageUp)"
+                disabled={activePageIndex === 0}
+                onClick={() => setActivePageIndex((i) => Math.max(0, i - 1))}
+                className="p-2 text-gray-600 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100/80 rounded-l-full active:bg-gray-200 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-2.5 py-1 tabular-nums text-gray-700 border-x border-gray-100 flex items-center space-x-1.5">
+                <span className="text-gray-500 font-normal">Page</span>
+                <span className="font-bold text-indigo-600">{activePageIndex + 1}</span>
+                <span className="text-gray-400">/</span>
+                <span className="text-gray-600">{pageInfos.length}</span>
+              </span>
+              <button
+                type="button"
+                aria-label="Next page"
+                title="Next page (PageDown)"
+                disabled={activePageIndex === pageInfos.length - 1}
+                onClick={() => setActivePageIndex((i) => Math.min(pageInfos.length - 1, i + 1))}
+                className="p-2 text-gray-600 hover:text-indigo-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-100/80 rounded-r-full active:bg-gray-200 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
         <RightSidebar {...rightSidebarProps} />
       </div>
 

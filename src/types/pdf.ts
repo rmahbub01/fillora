@@ -50,6 +50,10 @@ export interface FormField {
   // Checkbox specific
   checkboxState: CheckboxState;
   
+  // Segmented / Comb character boxes (e.g. adjacent small boxes for Date, Account No, Mobile)
+  isComb?: boolean;
+  combCells?: number; // Number of adjacent boxes / cells (e.g., 8, 11, 14, 16)
+
   // Interaction & Lock state
   locked: boolean;
   confidence?: number;

@@ -319,6 +319,59 @@ export class PdfExporterService {
     } else {
       // Single line text: calculates bleed so large font size or long text overflows naturally without clipping
       const text = field.value || '';
+
+      // Segmented / Comb box mode: each character is centered in its adjacent small box
+      if (field.isComb && field.combCells && field.combCells > 1) {
+        const numCells = field.combCells;
+        const cellWidthPts = widthPts / numCells;
+        const cellWidthPx = cellWidthPts * scaleFactor;
+
+        // Auto font size scaled nicely to fit each cell
+        const cellMaxFontSizePts = Math.min(effectiveSizePts, cellWidthPts * 0.72);
+        const cellFontSizePx = cellMaxFontSizePts * scaleFactor;
+        const combFontSpec = `${fontStyle}${fontWeight}${cellFontSizePx}px ${fontFamily}, Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`;
+
+        const bleedPts = 4;
+        const canvasWidthPts = widthPts + bleedPts * 2;
+        const canvasHeightPts = heightPts + bleedPts * 2;
+
+        canvas.width = Math.ceil(canvasWidthPts * scaleFactor);
+        canvas.height = Math.ceil(canvasHeightPts * scaleFactor);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.font = combFontSpec;
+        ctx.fillStyle = field.color || '#000000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const boxLeftPx = bleedPts * scaleFactor;
+        const boxTopPx = bleedPts * scaleFactor;
+        const boxHeightPx = heightPts * scaleFactor;
+        const textY = boxTopPx + boxHeightPx / 2;
+
+        for (let i = 0; i < Math.min(text.length, numCells); i++) {
+          const char = text[i];
+          if (char && char.trim()) {
+            const charCenterXPx = boxLeftPx + (i + 0.5) * cellWidthPx;
+            ctx.fillText(char, charCenterXPx, textY);
+          }
+        }
+
+        const bytes = await this.canvasToUint8Array(canvas);
+        return {
+          bytes,
+          actualHeightPts: heightPts,
+          renderInfo: {
+            drawXOffset: bleedPts,
+            drawYOffset: bleedPts,
+            totalWidthPts: canvasWidthPts,
+            totalHeightPts: canvasHeightPts,
+          },
+        };
+      }
+
       const textMetrics = measureCtx.measureText(text);
       const textWidthPx = textMetrics.width;
       const textWidthPts = textWidthPx / scaleFactor;

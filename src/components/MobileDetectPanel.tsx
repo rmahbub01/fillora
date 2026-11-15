@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { Zap, Cpu, Sparkles, Wifi } from 'lucide-react';
 import { ModelType, DetectionScope } from '../types/pdf';
-import { isLowMemoryDevice } from '../utils/device';
 
 interface Props {
   selectedModel: ModelType;
@@ -13,25 +12,33 @@ interface Props {
 }
 
 export const MobileDetectPanel: React.FC<Props> = ({ selectedModel, onSelectModel, scope, onSelectScope, pageCount, onRun }) => {
-  const lowMem = isLowMemoryDevice();
-
   useEffect(() => {
-    if (selectedModel === 'heuristic' || (lowMem && selectedModel === 'ffdnet-l')) {
+    if (selectedModel === 'heuristic') {
       onSelectModel('ffdnet-s');
     }
-  }, [selectedModel, lowMem, onSelectModel]);
+  }, [selectedModel, onSelectModel]);
 
-  const options: { id: ModelType; icon: React.ReactNode; name: string; badge: string; desc: string; hidden?: boolean }[] = [
-    { id: 'ffdnet-s', icon: <Zap className="w-5 h-5 text-amber-500" />, name: 'FFDNet-S (AI)', badge: '~36 MB, cached after 1st use',
-      desc: 'Neural detector tuned for phones. Recommended for most forms.' },
-    { id: 'ffdnet-l', icon: <Cpu className="w-5 h-5 text-indigo-600" />, name: 'FFDNet-L (AI)', badge: '~97 MB',
-      desc: lowMem ? 'Hidden on low-memory devices to avoid crashes.' : 'Most accurate, but slow and memory-hungry on phones.', hidden: lowMem },
+  const options: { id: ModelType; icon: React.ReactNode; name: string; badge: string; desc: string }[] = [
+    {
+      id: 'ffdnet-s',
+      icon: <Zap className="w-5 h-5 text-amber-500" />,
+      name: 'FFDNet-S (AI)',
+      badge: '~36 MB, cached after 1st use',
+      desc: 'Neural detector tuned for phones. Recommended for most forms.',
+    },
+    {
+      id: 'ffdnet-l',
+      icon: <Cpu className="w-5 h-5 text-indigo-600" />,
+      name: 'FFDNet-L (AI)',
+      badge: '~97 MB',
+      desc: 'Deep 25M neural model. Highest accuracy for complex forms.',
+    },
   ];
 
   return (
     <div className="p-4 space-y-4">
       <div className="space-y-2">
-        {options.filter((o) => !o.hidden).map((o) => (
+        {options.map((o) => (
           <button key={o.id} onClick={() => onSelectModel(o.id)}
             className={`w-full text-left p-3 rounded-xl border flex items-start space-x-3 transition ${
               selectedModel === o.id ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-300' : 'border-gray-200 active:bg-gray-50'}`}>

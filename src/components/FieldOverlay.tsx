@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { FormField, CheckboxState } from '../types/pdf';
 import { getEffectiveFontSizePts } from '../utils/typography';
 import { isMobileDevice } from '../utils/device';
-import { Lock, Unlock, Trash2, Check, X, Circle, GripHorizontal } from 'lucide-react';
+import { Lock, Unlock, Trash2, Check, X, Circle, GripHorizontal, LayoutGrid } from 'lucide-react';
 
 interface FieldOverlayProps {
   field: FormField;
@@ -33,6 +33,7 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   const dragDistRef = useRef<number>(0);
   const currentBoxRef = useRef(field.box);
   const [multilineHeight, setMultilineHeight] = useState<number>(0);
+  const [activeCellIndex, setActiveCellIndex] = useState<number>(0);
 
   currentBoxRef.current = field.box;
 
@@ -345,6 +346,30 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
             </div>
           )}
           <span className="text-[10px] text-gray-400 font-mono uppercase">{field.type}</span>
+          {!field.multiline && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const nextComb = !field.isComb;
+                onChange({
+                  ...field,
+                  isComb: nextComb,
+                  combCells: field.combCells || 11,
+                  hAlign: nextComb ? 'center' : field.hAlign,
+                }, true);
+              }}
+              title={field.isComb ? `Comb mode active (${field.combCells || 11} boxes). Click to switch to normal text.` : 'Click to enable Segmented / Comb mode (adjacent character boxes)'}
+              className={`p-0.5 px-1.5 rounded text-[10px] flex items-center space-x-1 transition ${
+                field.isComb
+                  ? 'bg-indigo-600 text-white font-semibold'
+                  : 'text-gray-300 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <LayoutGrid className="w-3 h-3" />
+              <span>{field.isComb ? `${field.combCells || 11} Cells` : 'Comb'}</span>
+            </button>
+          )}
           <div className="w-[1px] h-3 bg-gray-700" />
           {!field.locked && (
             <button
@@ -431,6 +456,93 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
               wordBreak: 'break-word',
             }}
             className="w-full bg-transparent resize-none outline-none border-none p-0 m-0 text-gray-900 font-normal placeholder:text-gray-400/50 placeholder:italic placeholder:font-normal break-words"
+          />
+        </div>
+      ) : field.isComb && field.combCells && field.combCells > 1 ? (
+        <div
+          onClick={() => {
+            onSelect(field.id);
+            const input = inputRef.current as HTMLInputElement | null;
+            if (input) {
+              input.focus();
+              const targetIdx = Math.min(field.combCells! - 1, field.value.length);
+              setActiveCellIndex(targetIdx);
+              input.setSelectionRange(targetIdx, targetIdx + 1);
+            }
+          }}
+          className="w-full h-full flex flex-row relative select-none cursor-text overflow-hidden"
+          style={{
+            fontFamily: `"${field.fontFamily}", Kalpurush, Nikosh, "Noto Sans Bengali", sans-serif`,
+          }}
+        >
+          {Array.from({ length: field.combCells }).map((_, i) => {
+            const char = field.value[i] || '';
+            const isActive = isSelected && activeCellIndex === i;
+            const cellW = pixelWidth / field.combCells!;
+            const cellFontSize = Math.min(computedFontSize, cellW * 0.72);
+
+            return (
+              <div
+                key={i}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(field.id);
+                  setActiveCellIndex(i);
+                  const input = inputRef.current as HTMLInputElement | null;
+                  if (input) {
+                    input.focus();
+                    input.setSelectionRange(i, i + 1);
+                  }
+                }}
+                className={`h-full flex items-center justify-center relative transition-colors ${
+                  i < field.combCells! - 1 ? 'border-r border-indigo-300/40' : ''
+                } ${
+                  isActive
+                    ? 'bg-indigo-100/50 ring-1 ring-indigo-500 ring-inset'
+                    : 'hover:bg-indigo-50/20'
+                }`}
+                style={{
+                  width: `${100 / field.combCells!}%`,
+                  fontSize: `${cellFontSize}px`,
+                  fontWeight: field.bold ? 'bold' : 'normal',
+                  fontStyle: field.italic ? 'italic' : 'normal',
+                  color: field.color,
+                }}
+              >
+                <span className="leading-none select-none pointer-events-none">{char}</span>
+                {isActive && (
+                  <span className="absolute bottom-1 w-2.5 h-[2px] bg-indigo-600 animate-pulse pointer-events-none" />
+                )}
+              </div>
+            );
+          })}
+
+          {/* Hidden input capturing typing, arrow navigation, backspace, and paste */}
+          <input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type="text"
+            maxLength={field.combCells}
+            value={field.value}
+            onChange={(e) => {
+              const val = e.target.value.slice(0, field.combCells);
+              onChange({ ...field, value: val }, true);
+              setActiveCellIndex(Math.min(field.combCells! - 1, val.length));
+            }}
+            onFocus={() => {
+              onSelect(field.id);
+              setActiveCellIndex(Math.min(field.combCells! - 1, field.value.length));
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') {
+                setActiveCellIndex((prev) => Math.max(0, prev - 1));
+              } else if (e.key === 'ArrowRight') {
+                setActiveCellIndex((prev) => Math.min(field.combCells! - 1, prev + 1));
+              }
+            }}
+            className="absolute inset-0 opacity-0 pointer-events-none w-full h-full cursor-text"
+            tabIndex={0}
+            autoComplete="off"
+            spellCheck={false}
           />
         </div>
       ) : (

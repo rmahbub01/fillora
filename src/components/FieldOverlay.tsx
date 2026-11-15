@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { FormField, CheckboxState } from '../types/pdf';
+import { FormField, CheckboxState, BoundingBox } from '../types/pdf';
 import { getEffectiveFontSizePts } from '../utils/typography';
 import { isMobileDevice } from '../utils/device';
+import { calculateSmartGuidesAndSnap, SmartGuideLine } from '../utils/smartGuides';
 import { Lock, Unlock, Trash2, Check, X, Circle, GripHorizontal, LayoutGrid } from 'lucide-react';
 
 interface FieldOverlayProps {
@@ -13,6 +14,9 @@ interface FieldOverlayProps {
   pageWidth: number;
   pageHeight: number;
   scale: number;
+  otherFields?: FormField[];
+  onGuidesChange?: (guides: SmartGuideLine[]) => void;
+  smartGuidesEnabled?: boolean;
 }
 
 export const FieldOverlay: React.FC<FieldOverlayProps> = ({
@@ -24,6 +28,9 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   pageWidth,
   pageHeight,
   scale,
+  otherFields = [],
+  onGuidesChange,
+  smartGuidesEnabled = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -32,10 +39,42 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
   const [dragStart, setDragStart] = useState({ mouseX: 0, mouseY: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 });
   const dragDistRef = useRef<number>(0);
   const currentBoxRef = useRef(field.box);
+  const multilineHeightRef = useRef<number>(0);
   const [multilineHeight, setMultilineHeight] = useState<number>(0);
   const [activeCellIndex, setActiveCellIndex] = useState<number>(0);
 
   currentBoxRef.current = field.box;
+
+  // Keep fresh references for drag/resize handlers to avoid effect churn
+  const fieldRef = useRef(field);
+  fieldRef.current = field;
+
+  const otherFieldsRef = useRef(otherFields);
+  otherFieldsRef.current = otherFields;
+
+  const onGuidesChangeRef = useRef(onGuidesChange);
+  onGuidesChangeRef.current = onGuidesChange;
+
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const smartGuidesEnabledRef = useRef(smartGuidesEnabled);
+  smartGuidesEnabledRef.current = smartGuidesEnabled;
+
+  const dragStartRef = useRef(dragStart);
+  dragStartRef.current = dragStart;
+
+  const isResizingRef = useRef(isResizing);
+  isResizingRef.current = isResizing;
+
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+
+  const pageWidthRef = useRef(pageWidth);
+  pageWidthRef.current = pageWidth;
+
+  const pageHeightRef = useRef(pageHeight);
+  pageHeightRef.current = pageHeight;
 
   // Calculate actual pixel dimensions inside the page viewport
   const pixelLeft = field.box.x * pageWidth * scale;
@@ -122,48 +161,153 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     if (!isDragging && !isResizing) return;
 
     const handleMouseMove = (e: PointerEvent) => {
-      const deltaX = (e.clientX - dragStart.mouseX) / (pageWidth * scale);
-      const deltaY = (e.clientY - dragStart.mouseY) / (pageHeight * scale);
-      dragDistRef.current = Math.max(dragDistRef.current, Math.hypot(e.clientX - dragStart.mouseX, e.clientY - dragStart.mouseY));
+      const curDragStart = dragStartRef.current;
+      const curPageW = pageWidthRef.current;
+      const curPageH = pageHeightRef.current;
+      const curScale = scaleRef.current;
+      const curField = fieldRef.current;
+      const curOtherFields = otherFieldsRef.current;
+      const curSmartGuidesEnabled = smartGuidesEnabledRef.current;
+      const curResizing = isResizingRef.current;
+
+      const deltaX = (e.clientX - curDragStart.mouseX) / (curPageW * curScale);
+      const deltaY = (e.clientY - curDragStart.mouseY) / (curPageH * curScale);
+      dragDistRef.current = Math.max(
+        dragDistRef.current,
+        Math.hypot(e.clientX - curDragStart.mouseX, e.clientY - curDragStart.mouseY)
+      );
+
+      const canvasWidth = curPageW * curScale;
+      const canvasHeight = curPageH * curScale;
+
+      // Holding Alt / Option temporarily bypasses snapping for 100% free visual placement
+      const isSnapActive = curSmartGuidesEnabled && !e.altKey;
 
       if (isDragging) {
-        const newX = Math.max(0, Math.min(1 - dragStart.boxW, dragStart.boxX + deltaX));
-        const newY = Math.max(0, Math.min(1 - dragStart.boxH, dragStart.boxY + deltaY));
-        const updatedBox = { ...field.box, x: newX, y: newY };
-        currentBoxRef.current = updatedBox;
-        onChange({
-          ...field,
-          box: updatedBox,
-        }, false); // Smooth live update without flood-pushing history
-      } else if (isResizing) {
-        let newX = dragStart.boxX;
-        let newY = dragStart.boxY;
-        let newW = dragStart.boxW;
-        let newH = dragStart.boxH;
+        const rawX = curDragStart.boxX + deltaX;
+        const rawY = curDragStart.boxY + deltaY;
+        const candidateBox: BoundingBox = {
+          x: rawX,
+          y: rawY,
+          width: curDragStart.boxW,
+          height: curDragStart.boxH,
+        };
 
-        if (isResizing.includes('e')) {
-          newW = Math.max(0.005, Math.min(1 - newX, dragStart.boxW + deltaX));
+        if (isSnapActive) {
+          const snapResult = calculateSmartGuidesAndSnap({
+            candidateBox,
+            otherFields: curOtherFields,
+            canvasWidth,
+            canvasHeight,
+            threshold: 5,
+            action: 'drag',
+          });
+
+          currentBoxRef.current = snapResult.snappedBox;
+          onChangeRef.current(
+            {
+              ...curField,
+              box: snapResult.snappedBox,
+            },
+            false
+          );
+          onGuidesChangeRef.current?.(snapResult.guides);
+        } else {
+          const newX = Math.max(0, Math.min(1 - curDragStart.boxW, rawX));
+          const newY = Math.max(0, Math.min(1 - curDragStart.boxH, rawY));
+          const updatedBox = { ...curField.box, x: newX, y: newY };
+          currentBoxRef.current = updatedBox;
+          onChangeRef.current(
+            {
+              ...curField,
+              box: updatedBox,
+            },
+            false
+          );
+          onGuidesChangeRef.current?.([]);
         }
-        if (isResizing.includes('s')) {
-          newH = Math.max(0.005, Math.min(1 - newY, dragStart.boxH + deltaY));
+      } else if (curResizing) {
+        let rawX = curDragStart.boxX;
+        let rawY = curDragStart.boxY;
+        let rawW = curDragStart.boxW;
+        let rawH = curDragStart.boxH;
+
+        if (curResizing.includes('e')) {
+          rawW = curDragStart.boxW + deltaX;
         }
-        if (isResizing.includes('w')) {
-          const maxLeftMove = dragStart.boxX + dragStart.boxW - 0.005;
-          newX = Math.max(0, Math.min(maxLeftMove, dragStart.boxX + deltaX));
-          newW = dragStart.boxW - (newX - dragStart.boxX);
+        if (curResizing.includes('s')) {
+          rawH = curDragStart.boxH + deltaY;
         }
-        if (isResizing.includes('n')) {
-          const maxUpMove = dragStart.boxY + dragStart.boxH - 0.005;
-          newY = Math.max(0, Math.min(maxUpMove, dragStart.boxY + deltaY));
-          newH = dragStart.boxH - (newY - dragStart.boxY);
+        if (curResizing.includes('w')) {
+          rawX = curDragStart.boxX + deltaX;
+          rawW = curDragStart.boxW - deltaX;
+        }
+        if (curResizing.includes('n')) {
+          rawY = curDragStart.boxY + deltaY;
+          rawH = curDragStart.boxH - deltaY;
         }
 
-        const updatedBox = { x: newX, y: newY, width: newW, height: newH };
-        currentBoxRef.current = updatedBox;
-        onChange({
-          ...field,
-          box: updatedBox,
-        }, false);
+        const candidateBox: BoundingBox = {
+          x: rawX,
+          y: rawY,
+          width: rawW,
+          height: rawH,
+        };
+
+        if (isSnapActive) {
+          const snapResult = calculateSmartGuidesAndSnap({
+            candidateBox,
+            otherFields: curOtherFields,
+            canvasWidth,
+            canvasHeight,
+            threshold: 5,
+            action: 'resize',
+            resizeHandle: curResizing,
+          });
+
+          currentBoxRef.current = snapResult.snappedBox;
+          onChangeRef.current(
+            {
+              ...curField,
+              box: snapResult.snappedBox,
+            },
+            false
+          );
+          onGuidesChangeRef.current?.(snapResult.guides);
+        } else {
+          let newX = curDragStart.boxX;
+          let newY = curDragStart.boxY;
+          let newW = curDragStart.boxW;
+          let newH = curDragStart.boxH;
+
+          if (curResizing.includes('e')) {
+            newW = Math.max(0.005, Math.min(1 - newX, curDragStart.boxW + deltaX));
+          }
+          if (curResizing.includes('s')) {
+            newH = Math.max(0.005, Math.min(1 - newY, curDragStart.boxH + deltaY));
+          }
+          if (curResizing.includes('w')) {
+            const maxLeftMove = curDragStart.boxX + curDragStart.boxW - 0.005;
+            newX = Math.max(0, Math.min(maxLeftMove, curDragStart.boxX + deltaX));
+            newW = curDragStart.boxW - (newX - curDragStart.boxX);
+          }
+          if (curResizing.includes('n')) {
+            const maxUpMove = curDragStart.boxY + curDragStart.boxH - 0.005;
+            newY = Math.max(0, Math.min(maxUpMove, curDragStart.boxY + deltaY));
+            newH = curDragStart.boxH - (newY - curDragStart.boxY);
+          }
+
+          const updatedBox = { x: newX, y: newY, width: newW, height: newH };
+          currentBoxRef.current = updatedBox;
+          onChangeRef.current(
+            {
+              ...curField,
+              box: updatedBox,
+            },
+            false
+          );
+          onGuidesChangeRef.current?.([]);
+        }
       }
     };
 
@@ -176,12 +320,17 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
         height: Math.round(b.height * 10000) / 10000,
       };
       // Commit final position to history once
-      onChange({
-        ...field,
-        box: cleanBox,
-      }, true);
+      onChangeRef.current(
+        {
+          ...fieldRef.current,
+          box: cleanBox,
+        },
+        true
+      );
       setIsDragging(false);
       setIsResizing(null);
+      // Clean up alignment lines immediately on mouseup/drag-end
+      onGuidesChangeRef.current?.([]);
     };
 
     window.addEventListener('pointermove', handleMouseMove);
@@ -191,8 +340,9 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
       window.removeEventListener('pointermove', handleMouseMove);
       window.removeEventListener('pointerup', handleMouseUp);
       window.removeEventListener('pointercancel', handleMouseUp);
+      onGuidesChangeRef.current?.([]);
     };
-  }, [isDragging, isResizing, dragStart, field, onChange, pageWidth, pageHeight, scale]);
+  }, [isDragging, isResizing]);
 
   // Checkbox Field
   if (field.type === 'checkbox') {
@@ -303,13 +453,28 @@ export const FieldOverlay: React.FC<FieldOverlayProps> = ({
     <div
       ref={containerRef}
       onClick={() => onSelect(field.id)}
+      onPointerDown={(e) => {
+        if (field.locked) return;
+        const target = e.target as HTMLElement;
+        if (
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.closest('button') ||
+          target.classList.contains('resize-handle')
+        ) {
+          return;
+        }
+        handleMouseDownMove(e);
+      }}
       className={`absolute group transition-shadow ${
         isSelected
           ? 'ring-2 ring-indigo-500 ring-inset bg-white/85 shadow-sm z-30'
           : field.value
           ? 'hover:ring-1 hover:ring-indigo-300 hover:ring-inset hover:bg-white/40 z-10'
           : 'border border-indigo-200/50 bg-indigo-50/10 hover:border-indigo-400 hover:bg-indigo-50/25 z-10'
-      } ${!field.locked && isSelected ? 'border border-dashed border-indigo-400' : ''}`}
+      } ${!field.locked && isSelected ? 'border border-dashed border-indigo-400' : ''} ${
+        !field.locked ? 'cursor-move' : ''
+      }`}
       style={{
         left: `${pixelLeft}px`,
         top: `${effectivePixelTop}px`,

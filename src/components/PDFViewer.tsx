@@ -2,9 +2,11 @@ import React, { useRef, useEffect, useState } from 'react';
 import { FormField, PageInfo } from '../types/pdf';
 import { pdfRenderer } from '../services/pdfRenderer';
 import { FieldOverlay } from './FieldOverlay';
+import { SmartGuidesOverlay } from './SmartGuidesOverlay';
+import { SmartGuideLine } from '../utils/smartGuides';
 import { GithubIcon } from './GithubIcon';
 import { FilloraLogo } from './FilloraLogo';
-import { Plus, CheckSquare, Type, ZoomIn, ZoomOut, Maximize2, RotateCcw, Upload, ExternalLink } from 'lucide-react';
+import { Plus, CheckSquare, Type, ZoomIn, ZoomOut, Maximize2, RotateCcw, Upload, ExternalLink, Magnet } from 'lucide-react';
 
 interface PDFViewerProps {
   pageIndex: number;
@@ -47,6 +49,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   const zoomRef = useRef(zoomScale);
   zoomRef.current = zoomScale;
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pageX: number; pageY: number } | null>(null);
+  const [smartGuides, setSmartGuides] = useState<SmartGuideLine[]>([]);
+  const [smartGuidesEnabled, setSmartGuidesEnabled] = useState<boolean>(true);
 
   // Filter fields belonging to current active page
   const pageFields = fields.filter((f) => f.pageIndex === pageIndex);
@@ -256,7 +260,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           )}
 
           {/* Form Field Overlays */}
-          <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 pointer-events-none z-10">
             {pageFields.map((field) => (
               <div key={field.id} className="pointer-events-auto">
                 <FieldOverlay
@@ -268,10 +272,20 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                   pageWidth={pageWidth}
                   pageHeight={pageHeight}
                   scale={zoomScale}
+                  otherFields={pageFields.filter((f) => f.id !== field.id)}
+                  onGuidesChange={setSmartGuides}
+                  smartGuidesEnabled={smartGuidesEnabled}
                 />
               </div>
             ))}
           </div>
+
+          {/* Smart Guides Overlay: rendered on top of all fields and canvas */}
+          <SmartGuidesOverlay
+            guides={smartGuides}
+            width={pageWidth * zoomScale}
+            height={pageHeight * zoomScale}
+          />
         </div>
 
         {/* Right-click Context Menu */}
@@ -359,6 +373,27 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           className="p-2 md:p-1.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition"
         >
           {isMobile ? <Maximize2 className="w-4 h-4" /> : <RotateCcw className="w-3.5 h-3.5" />}
+        </button>
+
+        <div className={isMobile ? "h-4 w-[1px] bg-gray-200" : "w-4 h-[1px] bg-gray-200"} />
+
+        <button
+          onClick={() => {
+            setSmartGuidesEnabled((prev) => !prev);
+            setSmartGuides([]);
+          }}
+          title={
+            smartGuidesEnabled
+              ? 'Smart Guides: ON (magnetic snapping active). Click to turn off.'
+              : 'Smart Guides: OFF. Click to turn on magnetic snapping.'
+          }
+          className={`p-2 md:p-1.5 rounded-lg transition ${
+            smartGuidesEnabled
+              ? 'text-pink-600 bg-pink-50 hover:bg-pink-100'
+              : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <Magnet className="w-4 h-4" />
         </button>
       </div>
     </div>
